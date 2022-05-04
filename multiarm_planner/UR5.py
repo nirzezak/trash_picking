@@ -57,7 +57,7 @@ class Robotiq2F85:
         self.ur5 = ur5
         pose = ur5.get_end_effector_pose()
         self.body_id = p.loadURDF(
-            'assets/gripper/robotiq_2f_85_no_colliders.urdf',
+            'assets/gripper/robotiq_2f_85.urdf',
             pose[0],
             pose[1])
         self.color = color
@@ -268,7 +268,7 @@ class UR5:
                  velocity=1.0,
                  enabled=True,
                  acceleration=2.0,
-                 training=True):
+                 training=False):
         self.velocity = velocity
         self.acceleration = acceleration
         self.pose = pose

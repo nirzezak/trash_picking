@@ -2,7 +2,8 @@ import os
 import time
 import pybullet as p
 import pybullet_data
-from Ur5 import Ur5
+# from Ur5 import Ur5
+from multiarm_planner.UR5 import UR5
 
 URDF_FILES_PATH = "models"
 
@@ -21,7 +22,7 @@ plane_id = p.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
 bins_ids = [p.loadURDF(os.path.join(URDF_FILES_PATH, "bin.urdf"), bin_loc, flags=p.URDF_USE_INERTIA_FROM_FILE,
                    useFixedBase=True) for bin_loc in BINS_LOCATIONS]
 
-ur5_arms: list[Ur5] = [Ur5(*ur5_loc) for ur5_loc in UR5_LOCATIONS]
+ur5_arms = [UR5(ur5_loc) for ur5_loc in UR5_LOCATIONS]
 
 trash_id = p.loadURDF(os.path.join(URDF_FILES_PATH, 'YcbMustardBottle', "model.urdf"), [0., 0., 0.],
                       flags=p.URDF_USE_INERTIA_FROM_FILE)
