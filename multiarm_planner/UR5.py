@@ -119,7 +119,7 @@ class Robotiq2F85:
                 0.0] * len(self.joints),
             positionGains=[1.0]
             * len(self.joints))
-        self.open()
+        # self.open()
         self.constraints_thread = Thread(
             target=self.step_daemon_fn)
         self.constraints_thread.daemon = True
