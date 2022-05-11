@@ -31,6 +31,5 @@ p.setGravity(0, 0, -9.8)
 
 
 if __name__ == '__main__':
-    while True:
-        p.stepSimulation()
-        time.sleep(1./240)
+    ur5_arms[0].end_effector.close()
+    ur5_arms[0].end_effector.open()

@@ -132,6 +132,7 @@ class Robotiq2F85:
             p.VELOCITY_CONTROL,
             targetVelocity=-5,
             force=10000)
+        self.step_simulation(400)
 
     def close(self):
         p.setJointMotorControl2(
@@ -140,6 +141,7 @@ class Robotiq2F85:
             p.VELOCITY_CONTROL,
             targetVelocity=5,
             force=10000)
+        self.step_simulation(400)
 
     def normal(self):
         if self._mode != NORMAL:
@@ -174,6 +176,24 @@ class Robotiq2F85:
                 gripper_joint_positions,
                 gripper_joint_positions],
             positionGains=np.ones(5))
+
+    def step_simulation(self, num_steps):
+        for i in range(int(num_steps)):
+            p.stepSimulation()
+            if self.body_id is not None:
+                # Constraints
+                gripper_joint_positions = np.array([p.getJointState(self.body_id, i)[
+                                                        0] for i in range(p.getNumJoints(self.body_id))])
+                p.setJointMotorControlArray(
+                    self.body_id, [6, 3, 8, 5, 10], p.POSITION_CONTROL,
+                    [
+                        gripper_joint_positions[1], -gripper_joint_positions[1],
+                        -gripper_joint_positions[1], gripper_joint_positions[1],
+                        gripper_joint_positions[1]
+                    ],
+                    positionGains=np.ones(5)
+                )
+            sleep(1e-3)
 
     def step_daemon_fn(self):
         while True:
