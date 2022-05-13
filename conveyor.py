@@ -17,8 +17,9 @@ class Conveyor(object):
         # 6: positionOnB
         links = [(point[2], point[4], point[6]) for point in contact_points]
 
-        for body_uid, _, _ in links:
+        for body_uid, link_index, _ in links:
             linear_velocity, angular_velocity = p.getBaseVelocity(body_uid)
-            vx, _, vz = linear_velocity
-            linear_velocity = (vx, self.speed, vz)
+            _, _, vz = linear_velocity
+            linear_velocity = (0, self.speed, vz)
             p.resetBaseVelocity(body_uid, linear_velocity, angular_velocity)
+            p.changeDynamics(body_uid, link_index, lateralFriction=0, anisotropicFriction=0)
