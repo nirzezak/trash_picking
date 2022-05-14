@@ -7,6 +7,7 @@ import pybullet_data
 
 from conveyor import Conveyor
 from multiarm_planner.UR5 import UR5
+from score import Score
 from trash import MUSTARD_CONFIG
 from trash_generator import TrashGenerator
 
@@ -24,17 +25,18 @@ class Environment(object):
         p.setGravity(0, 0, -9.8)
 
         # Creating the environment
-        self.plane = p.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
-
         bins_path = os.path.join(URDF_FILES_PATH, "bin.urdf")
+        self.plane = p.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
         self.bins = [p.loadURDF(bins_path, bin_loc, flags=p.URDF_USE_INERTIA_FROM_FILE,
                                 useFixedBase=True) for bin_loc in BINS_LOCATIONS]
         self.arms = [UR5(ur5_loc) for ur5_loc in UR5_LOCATIONS]
         self.conveyor = Conveyor(CONVEYOR_LOCATION, speed=1)
 
+        # Manage the environment: trash generator, clocks, and scoreboard
         self.trash_generator = TrashGenerator(TRASH_SUMMON_INTERVAL, [1, 2, 0.5], CONVEYOR_LOCATION)
         self.current_tick = 0
         self.summon_tick = math.floor(TRASH_SUMMON_INTERVAL / FRAME_RATE)
+        self.score = Score()
 
     def step(self):
         # TODO: Could be converted to an event loop
