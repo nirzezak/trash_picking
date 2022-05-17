@@ -12,7 +12,7 @@ from trash import MUSTARD_CONFIG
 from trash_generator import TrashGenerator
 
 URDF_FILES_PATH = "models"
-CONVEYOR_LOCATION = [0, 0, 0.5]
+CONVEYOR_LOCATION = [0, 0, 0.25]
 BINS_LOCATIONS = [[1.5, 0.0, 0.1], [-1.5, 0.0, 0.1]]
 UR5_LOCATIONS = [([1, 0, 1], [0, 0, 1, 0]), ([-1, 0, 1], [0, 0, 1, 0])]
 FRAME_RATE = 1 / 240.
@@ -30,7 +30,7 @@ class Environment(object):
         self.bins = [p.loadURDF(bins_path, bin_loc, flags=p.URDF_USE_INERTIA_FROM_FILE,
                                 useFixedBase=True) for bin_loc in BINS_LOCATIONS]
         self.arms = [UR5(ur5_loc) for ur5_loc in UR5_LOCATIONS]
-        self.conveyor = Conveyor(CONVEYOR_LOCATION, speed=1)
+        self.conveyor = Conveyor(CONVEYOR_LOCATION, speed=0.25)
 
         # Manage the environment: trash generator, clocks, and scoreboard
         self.trash_generator = TrashGenerator(TRASH_SUMMON_INTERVAL, [1, 2, 0.5], CONVEYOR_LOCATION)

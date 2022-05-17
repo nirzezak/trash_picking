@@ -10,7 +10,9 @@ class TrashGenerator(object):
         self.trash = []
 
     def summon_trash(self, config):
-        self.trash.append(Trash(**config))
+        new_trash = Trash(**config)
+        self.trash.append(new_trash)
+        return new_trash
 
     def remove_trash(self, trash_uid):
         for i, trash_obj in enumerate(self.trash):
