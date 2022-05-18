@@ -9,7 +9,7 @@ URDF_FILES_PATH = "models"
 
 BINS_LOCATIONS = [[1.5, 0.0, 0.1], [-1.5, 0.0, 0.1]]
 
-UR5_LOCATIONS = [([0, 0, 0.3], [0, 0, 0, 1])]
+UR5_LOCATIONS = [([1, 0, 0.3], [0, 0, 0, 1]), ([-1, 0, 0.3], [0, 0, 0, 1])]
 
 
 # Open GUI and set pybullet_data in the path
@@ -28,13 +28,14 @@ bins_ids = [p.loadURDF(os.path.join(URDF_FILES_PATH, "bin.urdf"), bin_loc, flags
                    useFixedBase=True) for bin_loc in BINS_LOCATIONS]
 
 ur5_arms = [UR5.UR5(ur5_loc) for ur5_loc in UR5_LOCATIONS]
-ur5_arms[0].reset()
+for ur5 in ur5_arms:
+    ur5.reset()
 
 # trash_id = p.loadURDF(os.path.join(URDF_FILES_PATH, 'YcbMustardBottle', "model.urdf"), [0., 0., 0.],
 #                       flags=p.URDF_USE_INERTIA_FROM_FILE)
 
 p.setGravity(0, 0, -9.8)
-trash_id = p.loadURDF('cube_small.urdf', [-0.4, -0.4, 0.3], globalScaling=0.75)
+trash_id = p.loadURDF('models/ur5/meshes/objects/cuboid.urdf', [-0.4, -0.4, 0.3], globalScaling=0.75)
 table_id = p.loadURDF("table_square\\table_square.urdf", [-0.4, -0.4, -0.2], globalScaling=0.75)
 
 # p.changeDynamics(trash_id, -1, mass=0.5)
@@ -50,7 +51,7 @@ effector_pose = None #[[-0.026179734617471695, 0.1522190272808075, 0.21971933543
 
 time.sleep(2)
 path = None
-path = multiarm_env.birrt2([ur5_arms[0].inverse_kinematics(*end_pos)], effector_pose)
+path = multiarm_env.birrt2([ur5_arms[0].inverse_kinematics(*end_pos), ur5_arms[1].inverse_kinematics(*end_pos)], effector_pose)
 # path = multiarm_env.mrdrrt2([ur5_arms[0].inverse_kinematics(*end_pos)], effector_pose)
 # path = multiarm_env.birrt2([ur5_arms[0].inverse_kinematics(*end_pos)], [(trash_pos, p.getQuaternionFromEuler([0, np.pi / 2, 0]))])
 # path = multiarm_env.birrt2([ur5.get_arm_joint_values() for ur5 in ur5_arms], ([0, 0, 0, 1], [0, 0, 0, 1]))
@@ -61,36 +62,47 @@ else:
     print('Found Path')
     trash_pos[2] -= 0.12
     end_pos = [trash_pos, p.getQuaternionFromEuler([0, np.pi / 2, 0])]
-    path3 = multiarm_env.birrt2([ur5_arms[0].inverse_kinematics(*end_pos)], effector_pose)
+    path3 = multiarm_env.birrt2([ur5_arms[0].inverse_kinematics(*end_pos), ur5_arms[1].inverse_kinematics(*end_pos)], effector_pose)
 
     end_pos = [ur5_arms[0].home_config, p.getQuaternionFromEuler([0, np.pi / 2, 0])]
-    path2 = multiarm_env.birrt2([end_pos[0]], effector_pose)
+    path2 = multiarm_env.birrt2([ur5_arms[0].home_config, ur5_arms[1].home_config], effector_pose)
     if path2 is None:
         print('No path')
 
     else:
         ur5_arms[0].reset()
+        ur5_arms[1].reset()
+        print("*********")
+        print(path)
         for i, q in enumerate(path):
-            # multiarm_env.ur5_group.set_joint_positions(q)
+            multiarm_env.ur5_group.set_joint_positions(q)
             # time.sleep(0.2)
-            ur5_arms[0].move_joints(q, speed=0.05)
+            # arm_step_conf_len = int(len(q)/2)
+            # ur5_arms[0].move_joints(q[:arm_step_conf_len], speed=0.05)
+            # ur5_arms[1].move_joints(q[arm_step_conf_len:], speed=0.05)
             time.sleep(0.01)
 
         for i, q in enumerate(path3):
-            # multiarm_env.ur5_group.set_joint_positions(q)
+            multiarm_env.ur5_group.set_joint_positions(q)
             # time.sleep(0.2)
-            ur5_arms[0].move_joints(q, speed=0.05)
+            # arm_step_conf_len = int(len(q)/2)
+            # ur5_arms[0].move_joints(q[:arm_step_conf_len], speed=0.05)
+            # ur5_arms[1].move_joints(q[arm_step_conf_len:], speed=0.05)
             time.sleep(0.01)
 
         ur5_arms[0].close_gripper()
+        ur5_arms[1].close_gripper()
         # ur5_arms[0].set_arm_joints(last_config)
         for i, q in enumerate(path2):
-            # multiarm_env.ur5_group.set_joint_positions(q)
+            multiarm_env.ur5_group.set_joint_positions(q)
             # time.sleep(0.1)
-            ur5_arms[0].move_joints(q, speed=0.05)
+            # arm_step_conf_len = int(len(q)/2)
+            # ur5_arms[0].move_joints(q[:arm_step_conf_len], speed=0.05)
+            # ur5_arms[1].move_joints(q[arm_step_conf_len:], speed=0.05)
             time.sleep(0.01)
 
         ur5_arms[0].open_gripper()
+        ur5_arms[1].open_gripper()
 
 
 
@@ -151,6 +163,7 @@ if __name__ == '__main__':
 
 
         # gripper_orientation = p.getQuaternionFromEuler([np.pi, 0, p.getEulerFromQuaternion(orientation)[2]])
+
 
 
 
