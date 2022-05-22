@@ -1,8 +1,6 @@
 import numpy as np
 import pybullet as p
 
-from trash_types import TrashTypes
-
 
 class Trash(object):
     """
