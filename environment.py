@@ -41,7 +41,7 @@ class Environment(object):
         self.plane = self.p_simulation.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
         self.bins = [self.p_simulation.loadURDF(bins_path, add_element_wise(bin_loc, world_origin_point),
                                                 flags=p.URDF_USE_INERTIA_FROM_FILE, useFixedBase=True)
-                     for bin_loc in BINS_LOCATIONS]
+                     for bin_loc in BINS_LOCATIONS]  # TODO - understand why we only see gui's bins
         self.arms = [UR5((add_element_wise(ur5_loc[0], world_origin_point), ur5_loc[1])) for ur5_loc in UR5_LOCATIONS]
         conveyor_loc = add_element_wise(CONVEYOR_LOCATION, world_origin_point)
         self.conveyor = Conveyor(conveyor_loc, speed=0.25, arms=self.arms)
