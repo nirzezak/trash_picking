@@ -42,7 +42,7 @@ class Environment(object):
         self.bins = [self.p_simulation.loadURDF(bins_path, add_element_wise(bin_loc, world_origin_point),
                                                 flags=p.URDF_USE_INERTIA_FROM_FILE, useFixedBase=True)
                      for bin_loc in BINS_LOCATIONS]
-        self.arms = [UR5((add_element_wise(ur5_loc[0], world_origin_point), ur5_loc[1])) for ur5_loc in UR5_LOCATIONS]
+        self.arms = [UR5(self.p_simulation, (add_element_wise(ur5_loc[0], world_origin_point), ur5_loc[1])) for ur5_loc in UR5_LOCATIONS]
         conveyor_loc = add_element_wise(CONVEYOR_LOCATION, world_origin_point)
         self.conveyor = Conveyor(self.p_simulation, conveyor_loc, speed=0.25, arms=self.arms)
 
