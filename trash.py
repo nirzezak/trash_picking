@@ -13,8 +13,9 @@ class Trash(object):
     @param id: The object's ID as returned by pybullet
     @param trash_size: How many arms are required to lift the object?
     """
-    def __init__(self, path=None, location=None, gripping_points=None, trash_type=TrashTypes.PLASTIC):
+    def __init__(self, p_simulation, path=None, location=None, gripping_points=None, trash_type=TrashTypes.PLASTIC):
         """
+        @param p_simulation: pybullet simulation physics client
         @param path: Path to the URDF file containing the object
         @param location: Location to load the trash to
         @param gripping_points: The points that we can grip to. If the object
@@ -24,9 +25,11 @@ class Trash(object):
         """
         self.path = path
         self.gripping_points = np.array(gripping_points)
+        self.id = p_simulation.loadURDF(self.path, location, useFixedBase=False)
         self.location = location
         self.id = p.loadURDF(self.path, location, useFixedBase=False)
         self.trash_size = len(self.gripping_points)
+        self.p_simulation = p_simulation
         self.trash_type = trash_type
 
     def get_curr_gripping_points(self):
@@ -35,7 +38,7 @@ class Trash(object):
         in world coordinates.
         """
         new_gripping_points = []
-        pos, orientation = p.getBasePositionAndOrientation(self.id)
+        pos, orientation = self.p_simulation.getBasePositionAndOrientation(self.id)
         # Create the rotation matrix from the orientation
         rotation_matrix = p.getMatrixFromQuaternion(orientation)
         rotation_matrix = np.array(rotation_matrix).reshape((3, 3))
