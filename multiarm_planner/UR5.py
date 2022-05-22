@@ -53,10 +53,14 @@ TOUCHED = 1
 
 
 class Robotiq2F85:
-    def __init__(self, ur5, color, replace_textures=True):
+    def __init__(self, p_simulation, ur5, color, replace_textures=True):
+        """
+        @param p_simulation: pybullet simulation physics client
+        """
+        self.p_simulation = p_simulation
         self.ur5 = ur5
         pose = ur5.get_end_effector_pose()
-        self.body_id = p.loadURDF(
+        self.body_id = self.p_simulation.loadURDF(
             'assets/gripper/robotiq_2f_85.urdf',
             pose[0],
             pose[1])
@@ -64,7 +68,7 @@ class Robotiq2F85:
         self.replace_textures = replace_textures
         self.tool_joint_idx = 7
         self.tool_offset = [0, 0, 0.02]
-        self.tool_constraint = p.createConstraint(
+        self.tool_constraint = self.p_simulation.createConstraint(
             ur5.body_id,
             self.tool_joint_idx,
             self.body_id,
@@ -79,8 +83,8 @@ class Robotiq2F85:
 
     def setup(self):
         # Set friction coefficients for gripper fingers
-        for i in range(p.getNumJoints(self.body_id)):
-            p.changeDynamics(self.body_id,
+        for i in range(self.p_simulation.getNumJoints(self.body_id)):
+            self.p_simulation.changeDynamics(self.body_id,
                              i,
                              lateralFriction=1.0,
                              spinningFriction=1.0,
@@ -88,13 +92,13 @@ class Robotiq2F85:
                              frictionAnchor=True)
             # ,contactStiffness=0.0,contactDamping=0.0)
             if self.replace_textures:
-                p.changeVisualShape(
+                self.p_simulation.changeVisualShape(
                     self.body_id,
                     i,
                     textureUniqueId=-1,
                     rgbaColor=(0, 0, 0, 0.5))
 
-        p.changeVisualShape(
+        self.p_simulation.changeVisualShape(
             self.body_id,
             0,
             textureUniqueId=-1,
@@ -105,13 +109,13 @@ class Robotiq2F85:
 
         self._mode = NORMAL
         self.normal()
-        self.joints = [p.getJointInfo(
-            self.body_id, i) for i in range(p.getNumJoints(self.body_id))]
+        self.joints = [self.p_simulation.getJointInfo(
+            self.body_id, i) for i in range(self.p_simulation.getNumJoints(self.body_id))]
         self.joints = [
             joint_info[0]
             for joint_info in self.joints
             if joint_info[2] == p.JOINT_REVOLUTE]
-        p.setJointMotorControlArray(
+        self.p_simulation.setJointMotorControlArray(
             self.body_id,
             self.joints,
             p.POSITION_CONTROL,
@@ -126,7 +130,7 @@ class Robotiq2F85:
         self.constraints_thread.start()
 
     def open(self):
-        p.setJointMotorControl2(
+        self.p_simulation.setJointMotorControl2(
             self.body_id,
             1,
             p.VELOCITY_CONTROL,
@@ -135,7 +139,7 @@ class Robotiq2F85:
         self.step_simulation(400)
 
     def close(self):
-        p.setJointMotorControl2(
+        self.p_simulation.setJointMotorControl2(
             self.body_id,
             1,
             p.VELOCITY_CONTROL,
@@ -145,7 +149,7 @@ class Robotiq2F85:
 
     def normal(self):
         if self._mode != NORMAL:
-            p.changeVisualShape(
+            self.p_simulation.changeVisualShape(
                 self.body_id,
                 0,
                 textureUniqueId=-1,
@@ -157,7 +161,7 @@ class Robotiq2F85:
 
     def touched(self):
         if self._mode != TOUCHED:
-            p.changeVisualShape(
+            self.p_simulation.changeVisualShape(
                 self.body_id,
                 0,
                 textureUniqueId=-1,
@@ -165,8 +169,8 @@ class Robotiq2F85:
             self._mode = TOUCHED
 
     def step(self):
-        gripper_joint_positions = p.getJointState(self.body_id, 1)[0]
-        p.setJointMotorControlArray(
+        gripper_joint_positions = self.p_simulation.getJointState(self.body_id, 1)[0]
+        self.p_simulation.setJointMotorControlArray(
             self.body_id,
             [6, 3, 8, 5, 10],
             p.POSITION_CONTROL,
@@ -179,12 +183,12 @@ class Robotiq2F85:
 
     def step_simulation(self, num_steps):
         for i in range(int(num_steps)):
-            p.stepSimulation()
+            self.p_simulation.stepSimulation()
             if self.body_id is not None:
                 # Constraints
-                gripper_joint_positions = np.array([p.getJointState(self.body_id, i)[
-                                                        0] for i in range(p.getNumJoints(self.body_id))])
-                p.setJointMotorControlArray(
+                gripper_joint_positions = np.array([self.p_simulation.getJointState(self.body_id, i)[
+                                                        0] for i in range(self.p_simulation.getNumJoints(self.body_id))])
+                self.p_simulation.setJointMotorControlArray(
                     self.body_id, [6, 3, 8, 5, 10], p.POSITION_CONTROL,
                     [
                         gripper_joint_positions[1], -gripper_joint_positions[1],
@@ -207,7 +211,7 @@ class Robotiq2F85:
         return quaternion.as_float_array(C)
 
     def set_pose(self, pose):
-        p.resetBasePositionAndOrientation(
+        self.p_simulation.resetBasePositionAndOrientation(
             self.body_id,
             pose[0],
             self.transform_orientation(pose[1]))
@@ -220,7 +224,7 @@ class Robotiq2F85Target(Robotiq2F85):
     def __init__(self, pose, color):
         self.color = color
         self.replace_textures = True
-        self.body_id = p.loadURDF(
+        self.body_id = self.p_simulation.loadURDF(
             'assets/gripper/robotiq_2f_85_no_colliders.urdf',
             pose[0],
             pose[1],
@@ -283,12 +287,17 @@ class UR5:
     EEF_LINK_INDEX = 7
 
     def __init__(self,
+                 p_simulation,
                  pose,
                  home_config=None,
                  velocity=1.0,
                  enabled=True,
                  acceleration=2.0,
                  training=False):
+        """
+        @param p_simulation: pybullet simulation physics client
+        """
+        self.p_simulation = p_simulation
         self.velocity = velocity
         self.acceleration = acceleration
         self.pose = pose
@@ -302,12 +311,12 @@ class UR5:
         UR5.next_available_color = (UR5.next_available_color + 1)\
             % len(UR5.colors)
         if training:
-            self.body_id = p.loadURDF('assets/ur5/ur5_training.urdf',
+            self.body_id = self.p_simulation.loadURDF('assets/ur5/ur5_training.urdf',
                                       self.pose[0],
                                       self.pose[1],
                                       flags=p.URDF_USE_SELF_COLLISION)
             self.end_effector = None
-            p.changeVisualShape(
+            self.p_simulation.changeVisualShape(
                 self.body_id,
                 UR5.EEF_LINK_INDEX,
                 textureUniqueId=-1,
@@ -316,15 +325,15 @@ class UR5:
                     self.color[1],
                     self.color[2], 0.5))
         else:
-            self.body_id = p.loadURDF('assets/ur5/ur5.urdf',
+            self.body_id = self.p_simulation.loadURDF('assets/ur5/ur5.urdf',
                                       self.pose[0],
                                       self.pose[1],
                                       flags=p.URDF_USE_SELF_COLLISION)
-            self.end_effector = Robotiq2F85(ur5=self,
+            self.end_effector = Robotiq2F85(p_simulation=self.p_simulation, ur5=self,
                                             color=self.color)
         # Get revolute joint indices of robot (skip fixed joints)
-        robot_joint_info = [p.getJointInfo(self.body_id, i)
-                            for i in range(p.getNumJoints(self.body_id))]
+        robot_joint_info = [self.p_simulation.getJointInfo(self.body_id, i)
+                            for i in range(self.p_simulation.getNumJoints(self.body_id))]
         self._robot_joint_indices = [
             x[0] for x in robot_joint_info if x[2] == p.JOINT_REVOLUTE]
 
@@ -361,19 +370,19 @@ class UR5:
             # Add the plane to the list
             others_id = [0] + obstacles_ids
         else:
-            others_id = [p.getBodyUniqueId(i)
-                        for i in range(p.getNumBodies())
-                        if p.getBodyUniqueId(i) != self.body_id]
+            others_id = [self.p_simulation.getBodyUniqueId(i)
+                        for i in range(self.p_simulation.getNumBodies())
+                        if self.p_simulation.getBodyUniqueId(i) != self.body_id]
                     
         self.closest_points_to_others = [
-            sorted(list(p.getClosestPoints(
+            sorted(list(self.p_simulation.getClosestPoints(
                 bodyA=self.body_id, bodyB=other_id,
                 distance=self.max_distance_from_others)),
                 key=lambda contact_points: contact_points[8])
             if other_id != 0 else []
             for other_id in others_id]
         self.closest_points_to_self = [
-            p.getClosestPoints(
+            self.p_simulation.getClosestPoints(
                 bodyA=self.body_id, bodyB=self.body_id,
                 distance=0,
                 linkIndexA=link1, linkIndexB=link2)
@@ -390,7 +399,7 @@ class UR5:
                 self.closest_points_to_others):
             if i == 0:
                 # Treat plane specially
-                for point in p.getClosestPoints(
+                for point in self.p_simulation.getClosestPoints(
                         bodyA=self.body_id, bodyB=0,
                         distance=0.0):
                     if point[8] < collision_distance:
@@ -448,11 +457,11 @@ class UR5:
                 acceleration=self.acceleration)
 
     def get_pose(self):
-        return p.getBasePositionAndOrientation(self.body_id)
+        return self.p_simulation.getBasePositionAndOrientation(self.body_id)
 
     def set_pose(self, pose):
         self.pose = pose
-        p.resetBasePositionAndOrientation(
+        self.p_simulation.resetBasePositionAndOrientation(
             self.body_id,
             self.pose[0],
             self.pose[1])
@@ -461,10 +470,10 @@ class UR5:
             self.end_effector.update_eef_pose()
 
     def global_to_ur5_frame(self, position, rotation=None):
-        self_pos, self_rot = p.getBasePositionAndOrientation(self.body_id)
-        invert_self_pos, invert_self_rot = p.invertTransform(
+        self_pos, self_rot = self.p_simulation.getBasePositionAndOrientation(self.body_id)
+        invert_self_pos, invert_self_rot = self.p_simulation.invertTransform(
             self_pos, self_rot)
-        ur5_frame_pos, ur5_frame_rot = p.multiplyTransforms(
+        ur5_frame_pos, ur5_frame_rot = self.p_simulation.multiplyTransforms(
             invert_self_pos, invert_self_rot,
             position, invert_self_rot if rotation is None else rotation
         )
@@ -479,7 +488,7 @@ class UR5:
             self.end_effector.normal()
 
     def get_link_global_positions(self):
-        linkstates = [p.getLinkState(
+        linkstates = [self.p_simulation.getLinkState(
             self.body_id, link_id, computeForwardKinematics=True)
             for link_id in range(UR5.LINK_COUNT)]
         link_world_positions = [
