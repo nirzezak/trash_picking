@@ -3,6 +3,7 @@ import os
 import time
 
 import pybullet as p
+from pybullet_utils import bullet_client as bc
 import pybullet_data
 
 from conveyor import Conveyor
@@ -24,14 +25,18 @@ TRASH_SUMMON_INTERVAL = 1
 
 
 class Environment(object):
-    def __init__(self):
-        p.connect(p.GUI)
-        p.setGravity(0, 0, -9.8)
+    def __init__(self, connection_mode):
+        """"
+        :param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
+        """
+        self.p_simulation = bc.BulletClient(connection_mode=connection_mode)
+
+        self.p_simulation.setGravity(0, 0, -9.8)
 
         # Creating the environment
         bins_path = os.path.join(URDF_FILES_PATH, "bin.urdf")
-        self.plane = p.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
-        self.bins = [p.loadURDF(bins_path, bin_loc, flags=p.URDF_USE_INERTIA_FROM_FILE,
+        self.plane = self.p_simulation.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
+        self.bins = [self.p_simulation.loadURDF(bins_path, bin_loc, flags=p.URDF_USE_INERTIA_FROM_FILE,
                                 useFixedBase=True) for bin_loc in BINS_LOCATIONS]
         self.arms = [UR5(ur5_loc) for ur5_loc in UR5_LOCATIONS]
         self.conveyor = Conveyor(CONVEYOR_LOCATION, speed=0.25, arms=self.arms)
@@ -49,14 +54,14 @@ class Environment(object):
         if self.current_tick == self.summon_tick:
             self.trash_generator.summon_trash(MUSTARD_CONFIG)
             self.current_tick = 0
-        p.stepSimulation()
+        self.p_simulation.stepSimulation()
         self.conveyor.convey()
         self.remove_uncaught_trash()
         time.sleep(FRAME_RATE)
         self.current_tick += 1
 
     def remove_uncaught_trash(self):
-        contact_points = p.getContactPoints(bodyA=self.plane)
+        contact_points = self.p_simulation.getContactPoints(bodyA=self.plane)
         body_uids = set([point[2] for point in contact_points])
         for body_uid in body_uids:
             if body_uid not in [self.conveyor, *self.bins]:
