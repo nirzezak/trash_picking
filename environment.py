@@ -41,10 +41,10 @@ class Environment(object):
         self.plane = self.p_simulation.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
         self.bins = [self.p_simulation.loadURDF(bins_path, add_element_wise(bin_loc, world_origin_point),
                                                 flags=p.URDF_USE_INERTIA_FROM_FILE, useFixedBase=True)
-                     for bin_loc in BINS_LOCATIONS]  # TODO - understand why we only see gui's bins
+                     for bin_loc in BINS_LOCATIONS]
         self.arms = [UR5((add_element_wise(ur5_loc[0], world_origin_point), ur5_loc[1])) for ur5_loc in UR5_LOCATIONS]
         conveyor_loc = add_element_wise(CONVEYOR_LOCATION, world_origin_point)
-        self.conveyor = Conveyor(conveyor_loc, speed=0.25, arms=self.arms)
+        self.conveyor = Conveyor(self.p_simulation, conveyor_loc, speed=0.25, arms=self.arms)
 
         # Manage the environment: trash generator, clocks, and scoreboard
         self.trash_generator = TrashGenerator(self.p_simulation, TRASH_SUMMON_INTERVAL, [1, 2, 0.5], conveyor_loc)
