@@ -163,7 +163,7 @@ else:
 if __name__ == '__main__':
     print("**********")
     print(p_gui.getNumBodies())
-    print(p_background.getNumBodies())
+    print(p_background.getNumBodies())  # TODO - weird results?
     print("**********")
 
     # old = p.getBasePositionAndOrientation(ur5_arms[0].id)
