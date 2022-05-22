@@ -29,8 +29,8 @@ TRASH_SUMMON_INTERVAL = 1
 class Environment(object):
     def __init__(self, connection_mode, world_origin_point=[0, 0, 0]):
         """"
-        :param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
-        :param world_origin_point: the "zero" point, the center of this env coordinate system
+        @param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
+        @param world_origin_point: the "zero" point, the center of this env coordinate system
         """
         self.p_simulation = bc.BulletClient(connection_mode=connection_mode)
 
@@ -47,7 +47,7 @@ class Environment(object):
         self.conveyor = Conveyor(conveyor_loc, speed=0.25, arms=self.arms)
 
         # Manage the environment: trash generator, clocks, and scoreboard
-        self.trash_generator = TrashGenerator(TRASH_SUMMON_INTERVAL, [1, 2, 0.5], conveyor_loc)
+        self.trash_generator = TrashGenerator(self.p_simulation, TRASH_SUMMON_INTERVAL, [1, 2, 0.5], conveyor_loc)
         self.current_tick = 0
         self.summon_tick = math.floor(TRASH_SUMMON_INTERVAL / FRAME_RATE)
         self.score = Score()
