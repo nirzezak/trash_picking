@@ -9,8 +9,10 @@ import pybullet_data
 from conveyor import Conveyor
 from multiarm_planner.UR5 import UR5
 from score import Score
-from trash import MUSTARD_CONFIG
+from trash import TrashType
 from trash_generator import TrashGenerator
+
+from utils import add_element_wise
 
 URDF_FILES_PATH = "models"
 CONVEYOR_LOCATION = [0, 0, 0.25]
@@ -25,9 +27,10 @@ TRASH_SUMMON_INTERVAL = 1
 
 
 class Environment(object):
-    def __init__(self, connection_mode):
+    def __init__(self, connection_mode, world_origin_point=[0, 0, 0]):
         """"
         :param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
+        :param world_origin_point: the "zero" point, the center of this env coordinate system
         """
         self.p_simulation = bc.BulletClient(connection_mode=connection_mode)
 
@@ -36,13 +39,15 @@ class Environment(object):
         # Creating the environment
         bins_path = os.path.join(URDF_FILES_PATH, "bin.urdf")
         self.plane = self.p_simulation.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
-        self.bins = [self.p_simulation.loadURDF(bins_path, bin_loc, flags=p.URDF_USE_INERTIA_FROM_FILE,
-                                useFixedBase=True) for bin_loc in BINS_LOCATIONS]
-        self.arms = [UR5(ur5_loc) for ur5_loc in UR5_LOCATIONS]
-        self.conveyor = Conveyor(CONVEYOR_LOCATION, speed=0.25, arms=self.arms)
+        self.bins = [self.p_simulation.loadURDF(bins_path, add_element_wise(bin_loc, world_origin_point),
+                                                flags=p.URDF_USE_INERTIA_FROM_FILE, useFixedBase=True)
+                     for bin_loc in BINS_LOCATIONS]
+        self.arms = [UR5((add_element_wise(ur5_loc[0], world_origin_point), ur5_loc[1])) for ur5_loc in UR5_LOCATIONS]
+        conveyor_loc = add_element_wise(CONVEYOR_LOCATION, world_origin_point)
+        self.conveyor = Conveyor(conveyor_loc, speed=0.25, arms=self.arms)
 
         # Manage the environment: trash generator, clocks, and scoreboard
-        self.trash_generator = TrashGenerator(TRASH_SUMMON_INTERVAL, [1, 2, 0.5], CONVEYOR_LOCATION)
+        self.trash_generator = TrashGenerator(TRASH_SUMMON_INTERVAL, [1, 2, 0.5], conveyor_loc)
         self.current_tick = 0
         self.summon_tick = math.floor(TRASH_SUMMON_INTERVAL / FRAME_RATE)
         self.score = Score()
@@ -52,7 +57,8 @@ class Environment(object):
 
         # Summon trash every couple of seconds
         if self.current_tick == self.summon_tick:
-            self.trash_generator.summon_trash(MUSTARD_CONFIG)
+
+            self.trash_generator.summon_trash(TrashType.MUSTARD)
             self.current_tick = 0
         self.p_simulation.stepSimulation()
         self.conveyor.convey()

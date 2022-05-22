@@ -1,6 +1,6 @@
 import numpy as np
 import pybullet as p
-
+from enum import Enum
 
 class Trash(object):
     """
@@ -47,6 +47,10 @@ class Trash(object):
 
 MUSTARD_CONFIG = {
     'path': r'models/YcbMustardBottle/model.urdf',
-    'location': [0, 0, 1],
     'gripping_points': [[0, 0, 1]],
 }
+
+
+class TrashType(Enum):
+    MUSTARD = MUSTARD_CONFIG
+
