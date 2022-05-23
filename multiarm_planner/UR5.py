@@ -21,6 +21,15 @@ from .rrt.pybullet_utils import (
 from math import pi
 from threading import Thread
 from time import sleep
+import enum
+
+
+class ArmState(enum.Enum):
+    IDLE = 0
+    MOVING_TO_TRASH = 1
+    MOVING_TO_BIN = 2
+    PICKING_TRASH = 3
+    RELEASING_TRASH = 4
 
 
 class HemisphereWorkspace:
@@ -50,7 +59,6 @@ class HemisphereWorkspace:
 
 NORMAL = 0
 TOUCHED = 1
-
 
 class Robotiq2F85:
     def __init__(self, p_simulation, ur5, color, replace_textures=True):
@@ -286,6 +294,8 @@ class UR5:
     RESET = [0, -1, 1, 0.5, 1, 0]
     EEF_LINK_INDEX = 7
 
+    UR5_MOVE_SPEED = 0.05
+
     def __init__(self,
                  p_simulation,
                  pose,
@@ -362,6 +372,8 @@ class UR5:
         self.closest_points_to_others = []
         self.closest_points_to_self = []
         self.max_distance_from_others = 0.5
+        self.path_buffer = []
+        self.state = ArmState.IDLE
 
     def update_closest_points(self, obstacles_ids=None):
         # if type(obstacles_ids) is list:
@@ -455,6 +467,62 @@ class UR5:
                 self.calc_next_subtarget_joints(),
                 velocity=self.velocity,
                 acceleration=self.acceleration)
+
+    def ur5_step(self):
+        path_completed = False
+        current_joint_state = [self.p_simulation.getJointState(self.body_id, i)[0] for i in self._robot_joint_indices]
+
+        if self.state == ArmState.IDLE:
+            if len(self.path_buffer) > 0:
+                self.state = ArmState.MOVING_TO_TRASH
+
+        if self.state == ArmState.MOVING_TO_TRASH or self.state == ArmState.MOVING_TO_BIN:
+            if all([np.abs(current_joint_state[i] - self.path_buffer[0][i]) < 1e-3 for i in range(len(self._robot_joint_indices))]):
+                # Reached target configuration
+                self.path_buffer.pop()
+
+                if len(self.path_buffer) > 0:
+                    # Move to next configuration
+                    next_target_config = self.path_buffer[0]
+                    self.p_simulation.setJointMotorControlArray(
+                        self.body_id, self._robot_joint_indices,
+                        p.POSITION_CONTROL, next_target_config,
+                        positionGains=type(self).UR5_MOVE_SPEED * np.ones(len(self._robot_joint_indices))
+                    )
+
+                else:
+                    path_completed = True
+
+        if path_completed:
+            if self.state == ArmState.MOVING_TO_TRASH:
+                # Finished moving to trash - now pick it up
+                self.state = ArmState.PICKING_TRASH
+                self.close_gripper()
+
+            elif self.state == ArmState.MOVING_TO_BIN:
+                # Finished moving to bin - drop trash in bin
+                self.state = ArmState.RELEASING_TRASH
+                self.open_gripper()
+
+    def close_gripper(self):
+        if self.end_effector is not None:
+            self.p_simulation.setJointMotorControl2(
+                self.end_effector.body_id,
+                1,
+                self.p_simulation.VELOCITY_CONTROL,
+                targetVelocity=5,
+                force=10000
+            )
+
+    def open_gripper(self):
+        if self.end_effector is not None:
+            self.p_simulation.setJointMotorControl2(
+                self.end_effector.body_id,
+                1,
+                self.p_simulation.VELOCITY_CONTROL,
+                targetVelocity=-5,
+                force=10000
+            )
 
     def get_pose(self):
         return self.p_simulation.getBasePositionAndOrientation(self.body_id)
