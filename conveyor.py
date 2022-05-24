@@ -27,7 +27,6 @@ class Conveyor(object):
 
         for body_uid, link_index, _ in links:
             if body_uid in self.arms_ids:
-                self.arms_ids[body_uid].ur5_step()
                 continue
             linear_velocity, angular_velocity = self.p_simulation.getBaseVelocity(body_uid)
             _, _, vz = linear_velocity
