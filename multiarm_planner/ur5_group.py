@@ -8,9 +8,9 @@ def split(a, n):
 
 
 class UR5Group:
-    def __init__(self, create_ur5s_fn, collision_distance):
-        self.all_controllers = create_ur5s_fn()
-        self.active_controllers = []
+    def __init__(self, ur5_arms, collision_distance=0):
+        self.all_controllers = ur5_arms[:]
+        self.active_controllers = ur5_arms[:]
         self.collision_distance = collision_distance
 
     def setup(self, start_poses, start_joints, specific_ur5s=None):
