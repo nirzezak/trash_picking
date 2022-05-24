@@ -22,6 +22,7 @@ from math import pi
 from threading import Thread
 from time import sleep
 import enum
+# from trash_generator import TaskState
 
 
 class ArmState(enum.Enum):
@@ -61,6 +62,8 @@ NORMAL = 0
 TOUCHED = 1
 
 class Robotiq2F85:
+    TICKS_TO_CHANGE_GRIP = 100
+
     def __init__(self, p_simulation, ur5, color, replace_textures=True):
         """
         @param p_simulation: pybullet simulation physics client
@@ -241,6 +244,10 @@ class Robotiq2F85Target(Robotiq2F85):
         self.setup()
 
 
+class InvalidArmState(Exception):
+    pass
+
+
 class UR5:
     joint_epsilon = 0.01
     joints_count = 6
@@ -372,8 +379,11 @@ class UR5:
         self.closest_points_to_others = []
         self.closest_points_to_self = []
         self.max_distance_from_others = 0.5
-        self.path_buffer = []
+        self.tasks = []
+        self.paths = []
         self.state = ArmState.IDLE
+        self.current_tick = 0
+        self.start_tick = 0
 
     def update_closest_points(self, obstacles_ids=None):
         # if type(obstacles_ids) is list:
@@ -468,22 +478,37 @@ class UR5:
                 velocity=self.velocity,
                 acceleration=self.acceleration)
 
+    def add_task(self, task):
+        self.tasks.append(task)
+
+    def add_path(self, path):
+        self.paths.append(path)
+
+    def start_task(self):
+        self.state = ArmState.MOVING_TO_TRASH
+
     def ur5_step(self):
+        if self.state == ArmState.IDLE:
+            self.current_tick = 0
+            return
+
         path_completed = False
         current_joint_state = [self.p_simulation.getJointState(self.body_id, i)[0] for i in self._robot_joint_indices]
-
-        if self.state == ArmState.IDLE:
-            if len(self.path_buffer) > 0:
-                self.state = ArmState.MOVING_TO_TRASH
+        self.current_tick += 1
 
         if self.state == ArmState.MOVING_TO_TRASH or self.state == ArmState.MOVING_TO_BIN:
-            if all([np.abs(current_joint_state[i] - self.path_buffer[0][i]) < 1e-3 for i in range(len(self._robot_joint_indices))]):
-                # Reached target configuration
-                self.path_buffer.pop()
+            if len(self.paths) == 0:
+                raise InvalidArmState(f'No path found for state: {self.state}')
 
-                if len(self.path_buffer) > 0:
+            current_path = self.paths[0]
+
+            if all([np.abs(current_joint_state[i] - current_path[0][i]) < 1e-3 for i in range(len(self._robot_joint_indices))]):
+                # Reached target configuration
+                current_path.pop()
+
+                if len(current_path) > 0:
                     # Move to next configuration
-                    next_target_config = self.path_buffer[0]
+                    next_target_config = current_path[0]
                     self.p_simulation.setJointMotorControlArray(
                         self.body_id, self._robot_joint_indices,
                         p.POSITION_CONTROL, next_target_config,
@@ -492,8 +517,11 @@ class UR5:
 
                 else:
                     path_completed = True
+                    self.paths.pop()
 
         if path_completed:
+            self.start_tick = self.current_tick
+
             if self.state == ArmState.MOVING_TO_TRASH:
                 # Finished moving to trash - now pick it up
                 self.state = ArmState.PICKING_TRASH
@@ -503,6 +531,17 @@ class UR5:
                 # Finished moving to bin - drop trash in bin
                 self.state = ArmState.RELEASING_TRASH
                 self.open_gripper()
+
+        if ArmState.PICKING_TRASH:
+            # Check if gripper picked trash
+            if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
+                self.state = ArmState.MOVING_TO_BIN
+
+        if ArmState.RELEASING_TRASH:
+            if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
+                self.state = ArmState.IDLE
+                # self.tasks[0].state = trash_generator.TaskState.TASK_DONE
+                self.tasks.pop()
 
     def close_gripper(self):
         if self.end_effector is not None:
