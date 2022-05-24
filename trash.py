@@ -1,6 +1,8 @@
 import numpy as np
 import pybullet as p
 
+from trash_types import TrashTypes
+
 
 class Trash(object):
     """
@@ -13,18 +15,21 @@ class Trash(object):
     @param id: The object's ID as returned by pybullet
     @param trash_size: How many arms are required to lift the object?
     """
-    def __init__(self, path=None, location=None, gripping_points=None):
+    def __init__(self, path=None, location=None, gripping_points=None, trash_type=TrashTypes.PLASTIC):
         """
         @param path: Path to the URDF file containing the object
         @param location: Location to load the trash to
         @param gripping_points: The points that we can grip to. If the object
         is light, it should be a list of length 1. If the object is heavy, it
         should be a list of length 2.
+        @param trash_type: The type of the trash.
         """
         self.path = path
         self.gripping_points = np.array(gripping_points)
+        self.location = location
         self.id = p.loadURDF(self.path, location, useFixedBase=False)
         self.trash_size = len(self.gripping_points)
+        self.trash_type = trash_type
 
     def get_curr_gripping_points(self):
         """
