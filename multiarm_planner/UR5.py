@@ -78,7 +78,7 @@ class Robotiq2F85:
         self.color = color
         self.replace_textures = replace_textures
         self.tool_joint_idx = 7
-        self.tool_offset = [0, 0, 0.02]
+        self.tool_offset = [0, 0, 0]
         self.tool_constraint = self.p_simulation.createConstraint(
             ur5.body_id,
             self.tool_joint_idx,
@@ -88,8 +88,9 @@ class Robotiq2F85:
             jointAxis=[0, 0, 0],
             parentFramePosition=[0, 0, 0],
             childFramePosition=self.tool_offset,
-            childFrameOrientation=p.getQuaternionFromEuler(
-                [0, -np.pi / 2, 0]))
+            childFrameOrientation=p.getQuaternionFromEuler([0, -np.pi / 2, 0])
+        )
+
         self.setup()
 
     def setup(self):
