@@ -2,12 +2,16 @@ import pybullet as p
 
 
 class Conveyor(object):
-    def __init__(self, location, speed=5, urdf_path=None, arms=None):
+    def __init__(self, p_simulation, location, speed=5, urdf_path=None, arms=None):
+        """
+        @param p_simulation: pybullet simulation physics client
+        """
         if not urdf_path:
             urdf_path = 'models/conveyor/conveyor.urdf'
 
         start_orientation = p.getQuaternionFromEuler([0, 0, 0])
-        self.id = p.loadURDF(urdf_path, location, start_orientation, useFixedBase=True)
+        self.p_simulation = p_simulation
+        self.id = p_simulation.loadURDF(urdf_path, location, start_orientation, useFixedBase=True)
         self.speed = speed
         self.arms_ids = []
         if arms:
@@ -15,7 +19,7 @@ class Conveyor(object):
             self.arms_ids += [arm.end_effector.body_id for arm in arms]
 
     def convey(self):
-        contact_points = p.getContactPoints(bodyA=self.id)
+        contact_points = self.p_simulation.getContactPoints(bodyA=self.id)
         # 2: bodyUniqueIdB
         # 4: linkIndexB
         # 6: positionOnB
@@ -24,8 +28,8 @@ class Conveyor(object):
         for body_uid, link_index, _ in links:
             if body_uid in self.arms_ids:
                 continue
-            linear_velocity, angular_velocity = p.getBaseVelocity(body_uid)
+            linear_velocity, angular_velocity = self.p_simulation.getBaseVelocity(body_uid)
             _, _, vz = linear_velocity
             linear_velocity = (0, self.speed, vz)
-            p.resetBaseVelocity(body_uid, linear_velocity, angular_velocity)
-            p.changeDynamics(body_uid, link_index, lateralFriction=0, anisotropicFriction=0)
+            self.p_simulation.resetBaseVelocity(body_uid, linear_velocity, angular_velocity)
+            self.p_simulation.changeDynamics(body_uid, link_index, lateralFriction=0, anisotropicFriction=0)
