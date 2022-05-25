@@ -26,13 +26,13 @@ class MultiarmEnvironment:
 
         self.ur5_group = UR5Group(ur5_arms)
 
-    def setup_run(self, ur5_poses, start_conf, target_eff_poses=None, obstacles=None):
+    def setup_run(self, ur5_poses, start_conf, target_eff_poses=None, obstacles=None, specific_ur5s=None):
         if self.gui:
             remove_all_markers()
             for pose, target in zip(target_eff_poses, self.targets):
                 target.set_pose(pose)
 
-        self.ur5_group.setup(ur5_poses, start_conf)
+        self.ur5_group.setup(ur5_poses, start_conf, specific_ur5s=specific_ur5s)
 
         if obstacles is not None:
             del self.obstacles
@@ -46,9 +46,9 @@ class MultiarmEnvironment:
                           target_eff_poses=task.target_eff_poses,
                           obstacles=task.obstacles)
 
-    def _birrt(self, start_configs, goal_configs,
+    def _birrt(self, ur5_arms, start_configs, goal_configs,
               ur5_poses, target_eff_poses=None, obstacles=None, resolutions=0.1, timeout=100000):
-        self.setup_run(ur5_poses, start_configs, target_eff_poses, obstacles)
+        self.setup_run(ur5_poses, start_configs, target_eff_poses, obstacles, specific_ur5s=ur5_arms)
 
         extend_fn = self.ur5_group.get_extend_fn(resolutions)
         collision_fn = self.ur5_group.get_collision_fn()
@@ -115,13 +115,13 @@ class MultiarmEnvironment:
         return start_configs, goal_configs, ur5_poses
 
     def birrt(self, ur5_arms, goal_positions, start_configs=None):
-        current_configs, current_poses, goal_configs = self.get_configs_for_rrt(ur5_arms, goal_positions)
+        current_configs, goal_configs, current_poses = self.get_configs_for_rrt(ur5_arms, goal_positions)
         start_configs = current_configs if start_configs is None else start_configs
 
-        return self._birrt(start_configs, goal_configs, current_poses)
+        return self._birrt(ur5_arms, start_configs, goal_configs, current_poses)
 
     def mrdrrt(self, ur5_arms, goal_positions, start_configs=None):
-        current_configs, current_poses, goal_configs = self.get_configs_for_rrt(ur5_arms, goal_positions)
+        current_configs, goal_configs, current_poses = self.get_configs_for_rrt(ur5_arms, goal_positions)
         start_configs = current_configs if start_configs is None else start_configs
 
         return self._mrdrrt(start_configs, goal_configs, current_poses)
