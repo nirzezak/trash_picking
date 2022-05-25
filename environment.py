@@ -41,12 +41,12 @@ class Environment(object):
         # Creating the environment
         bins_path = os.path.join(URDF_FILES_PATH, "bin.urdf")
         self.plane = self.p_simulation.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
-        self.bins = [Bin(bin_loc, TrashTypes.PLASTIC) for bin_loc in BINS_LOCATIONS]
-        self.arms = [UR5(ur5_loc) for ur5_loc in UR5_LOCATIONS]
-        self.conveyor = Conveyor(CONVEYOR_LOCATION, speed=0.25, arms=self.arms)
+        self.bins = [Bin(self.p_simulation, bin_loc, TrashTypes.PLASTIC) for bin_loc in BINS_LOCATIONS]
+        self.arms = [UR5(self.p_simulation, ur5_loc) for ur5_loc in UR5_LOCATIONS]
+        self.conveyor = Conveyor(self.p_simulation, CONVEYOR_LOCATION, speed=0.25, arms=self.arms)
 
         # Manage the environment: trash generator, clocks, and scoreboard
-        self.trash_generator = TrashGenerator(TRASH_SUMMON_INTERVAL, [1, 2, 0.5], CONVEYOR_LOCATION)
+        self.trash_generator = TrashGenerator(self.p_simulation, TRASH_SUMMON_INTERVAL, [1, 2, 0.5], CONVEYOR_LOCATION)
         self.task_manager = TaskManager(self.arms, self.bins, self.conveyor.speed)
         self.current_tick = 0
         self.summon_tick = math.floor(TRASH_SUMMON_INTERVAL / FRAME_RATE)

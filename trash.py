@@ -1,6 +1,8 @@
 import numpy as np
 import pybullet as p
 
+from trash_types import TrashTypes
+
 
 class Trash(object):
     """
@@ -27,7 +29,6 @@ class Trash(object):
         self.gripping_points = np.array(gripping_points)
         self.id = p_simulation.loadURDF(self.path, location, useFixedBase=False)
         self.location = location
-        self.id = p.loadURDF(self.path, location, useFixedBase=False)
         self.trash_size = len(self.gripping_points)
         self.p_simulation = p_simulation
         self.trash_type = trash_type
@@ -53,6 +54,6 @@ class Trash(object):
 
 MUSTARD_CONFIG = {
     'path': r'models/YcbMustardBottle/model.urdf',
-    'location': [0, 0, 1],
+    'location': [0, 0, 0.7],
     'gripping_points': [[0, 0, 1]],
 }
