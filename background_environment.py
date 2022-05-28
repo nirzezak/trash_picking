@@ -1,3 +1,4 @@
+import time
 import pybullet as p
 import numpy as np
 from environment import Environment
@@ -9,7 +10,7 @@ class BackgroundEnv(Environment):
         :param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
         """
         super().__init__(connection_mode, conveyor_speed=0)
-        # TODO - change the p global parameter in pybullet_utils
+        # TODO - change the p global parameter in pybullet_utils ? we can't do this because real simulation also uses pybullet_utils...
 
     def compute_motion_plan(self, arm_index_to_trash: dict, start_configs=None):
         """"

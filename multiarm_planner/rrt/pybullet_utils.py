@@ -1,4 +1,3 @@
-import pybullet as p
 import numpy as np
 import time
 import matplotlib as mpl
@@ -8,12 +7,15 @@ from itertools import product, combinations
 import pybullet_data
 import os
 import csv
+import pybullet
 
 INF = np.inf
 PI = np.pi
 CIRCULAR_LIMITS = -PI, PI
 MAX_DISTANCE = 0
 
+p = None  # will be set in BackgroundEnv init to be the pybullet simulation physics client of the background env TODO
+p = pybullet  # TODO remove
 
 def step(duration=1.0):
     for i in range(int(duration * 240)):
@@ -102,13 +104,13 @@ def get_constraint_info(constraint):
 # Joints
 
 JOINT_TYPES = {
-    p.JOINT_REVOLUTE: 'revolute',  # 0
-    p.JOINT_PRISMATIC: 'prismatic',  # 1
-    p.JOINT_SPHERICAL: 'spherical',  # 2
-    p.JOINT_PLANAR: 'planar',  # 3
-    p.JOINT_FIXED: 'fixed',  # 4
-    p.JOINT_POINT2POINT: 'point2point',  # 5
-    p.JOINT_GEAR: 'gear',  # 6
+    pybullet.JOINT_REVOLUTE: 'revolute',  # 0
+    pybullet.JOINT_PRISMATIC: 'prismatic',  # 1
+    pybullet.JOINT_SPHERICAL: 'spherical',  # 2
+    pybullet.JOINT_PLANAR: 'planar',  # 3
+    pybullet.JOINT_FIXED: 'fixed',  # 4
+    pybullet.JOINT_POINT2POINT: 'point2point',  # 5
+    pybullet.JOINT_GEAR: 'gear',  # 6
 }
 
 
