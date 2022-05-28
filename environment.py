@@ -8,6 +8,7 @@ import pybullet_data
 from conveyor import Conveyor
 
 from multiarm_planner import UR5, multiarm_environment
+from multiarm_planner.rrt import pybullet_utils
 
 from trash_bin import Bin
 from trash_generator import TrashGenerator
@@ -28,11 +29,16 @@ FRAME_RATE = 1 / 240.
 
 
 class Environment(object):
-    def __init__(self, connection_mode, conveyor_speed):
+    def __init__(self, connection_mode, conveyor_speed, set_pybullet_utils_p=False):
         """"
-        :param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
+        @param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
+        @param set_pybullet_utils_p : if set to True,
+        p variable of pybullet_utils (multiarm_planner.rrt) will be set to be self.p_simulation
         """
         self.p_simulation = bc.BulletClient(connection_mode=connection_mode)
+
+        if set_pybullet_utils_p:
+            pybullet_utils.p = self.p_simulation
 
         self.p_simulation.setGravity(0, 0, -9.8)
 

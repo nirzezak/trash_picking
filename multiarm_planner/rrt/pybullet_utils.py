@@ -14,8 +14,7 @@ PI = np.pi
 CIRCULAR_LIMITS = -PI, PI
 MAX_DISTANCE = 0
 
-p = None  # will be set in BackgroundEnv init to be the pybullet simulation physics client of the background env TODO
-p = pybullet  # TODO remove
+p = pybullet  # will be set in BackgroundEnv init to be the pybullet simulation physics client of the background env
 
 def step(duration=1.0):
     for i in range(int(duration * 240)):

@@ -9,8 +9,7 @@ class BackgroundEnv(Environment):
         """"
         :param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
         """
-        super().__init__(connection_mode, conveyor_speed=0)
-        # TODO - change the p global parameter in pybullet_utils ? we can't do this because real simulation also uses pybullet_utils...
+        super().__init__(connection_mode, conveyor_speed=0, set_pybullet_utils_p=True)
 
     def compute_motion_plan(self, arm_index_to_trash: dict, start_configs=None):
         """"
@@ -40,7 +39,7 @@ class BackgroundEnv(Environment):
             trash_pos, orientation = self.p_simulation.getBasePositionAndOrientation(trash.get_id())
             trash_pos = list(trash_pos)
             trash_pos[2] += 0.2  # TODO - make this dynamic?
-            end_pos = [trash_pos, p.getQuaternionFromEuler([0, np.pi / 2, 0])]  # This orientation is "from above", TODO- make this dynamic?
+            end_pos = [trash_pos, p.getQuaternionFromEuler([0, np.pi, 0])]  # This orientation is "from above", TODO- make this dynamic?
             arms_to_goal_configs[self.arms[arm_idx]] = end_pos
         time.sleep(2)
         path = self.arms_manager.birrt(arms_to_goal_configs.keys(), arms_to_goal_configs.values(), start_configs)
