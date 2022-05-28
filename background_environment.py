@@ -16,10 +16,10 @@ class BackgroundEnv(Environment):
         @param arm_index_to_trash: dictionary that maps from arm index (from self.arms)
         to a trash: (TrashConfig, trash location)
 
+        @param start_configs: list of start configs of the arms (same order as in arm_index_to_trash TODO- this is ugly)
+
         @returns a dictionary that maps from arms indices to paths, each arm gets the pass that will lead it to
         its trash target
-
-        :param start_configs: list of start configs of the arms (same order as in arm_index_to_trash) TODO- this is ugly
         """
         # TODO - trash to bin case
 
