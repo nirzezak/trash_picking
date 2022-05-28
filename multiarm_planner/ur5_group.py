@@ -8,9 +8,9 @@ def split(a, n):
 
 
 class UR5Group:
-    def __init__(self, create_ur5s_fn, collision_distance):
-        self.all_controllers = create_ur5s_fn()
-        self.active_controllers = []
+    def __init__(self, ur5_arms, collision_distance=0):
+        self.all_controllers = ur5_arms[:]
+        self.active_controllers = ur5_arms[:]
         self.collision_distance = collision_distance
 
     def setup(self, start_poses, start_joints, specific_ur5s=None):
@@ -32,7 +32,7 @@ class UR5Group:
         self.disable_all_ur5s()
         if specific_ur5s:
             assert count == len(specific_ur5s)
-            self.active_controllers = [ur5 for i, ur5 in enumerate(self.all_controllers) if i in specific_ur5s]
+            self.active_controllers = [ur5 for ur5 in self.all_controllers if ur5 in specific_ur5s]
         elif count:
             self.active_controllers = self.all_controllers[:count]
         [ur5.enable() for ur5 in self.active_controllers]
