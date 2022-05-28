@@ -28,7 +28,7 @@ class TrashGenerator(object):
         Else, removes trash with id = trash_uid
         """
         for i, trash_obj in enumerate(self.trash):
-            if trash_obj.id == trash_uid or trash_uid is None:
+            if trash_obj.get_id() == trash_uid or trash_uid is None:
                 self.trash.pop(i)
-                self.p_simulation.removeBody(trash_uid)
+                self.p_simulation.removeBody(trash_obj.get_id())
                 return
