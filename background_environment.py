@@ -42,9 +42,9 @@ class BackgroundEnv(Environment):
             trash_pos[2] += 0.2  # TODO - make this dynamic?
             end_pos = [trash_pos, p.getQuaternionFromEuler([0, np.pi / 2, 0])]  # This orientation is "from above", TODO- make this dynamic?
             arms_to_goal_configs[self.arms[arm_idx]] = end_pos
-
+        time.sleep(2)
         path = self.arms_manager.birrt(arms_to_goal_configs.keys(), arms_to_goal_configs.values(), start_configs)
-
+        time.sleep(2)
         # removes all trash
         self.trash_generator.remove_trash()
 
