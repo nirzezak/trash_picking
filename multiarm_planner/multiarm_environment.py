@@ -14,6 +14,9 @@ from .mrdrrt.mrdrrt_planner import MRdRRTPlanner
 
 class MultiarmEnvironment:
     def __init__(self, p_env, ur5_arms, gui=True, visualize=False):
+        """
+        @param p_env: pybullet simulation physics client
+        """
         print("[MultiarmEnv] Setting up multiarm environment")
         # set up simulator
         # configure_pybullet(rendering=gui, debug=False, yaw=0, pitch=0, dist=1.0, target=(0, 0, 0.3))
