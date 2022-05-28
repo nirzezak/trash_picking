@@ -7,11 +7,7 @@ import environment
 from environment import Environment
 from score import Score
 from task_manager import TaskManager
-from trash import MUSTARD_CONFIG
-from trash_generator import TrashGenerator
-
-TRASH_SUMMON_INTERVAL = 1
-FRAME_RATE = 1 / 240.
+from trash_configs import TrashConfig
 
 
 class RealEnv(Environment):
@@ -21,11 +17,10 @@ class RealEnv(Environment):
         """
         super().__init__(connection_mode, conveyor_speed=0.25)
 
-        # Manage the real environment: trash generator, clocks, and scoreboard
-        self.trash_generator = TrashGenerator(self.p_simulation, TRASH_SUMMON_INTERVAL, [1, 2, 0.5], environment.CONVEYOR_LOCATION)
+        # Manage the real environment: clocks, and scoreboard
         self.task_manager = TaskManager(self.arms, self.bins, self.conveyor.speed)
         self.current_tick = 0
-        self.summon_tick = math.floor(TRASH_SUMMON_INTERVAL / FRAME_RATE)
+        self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL / environment.FRAME_RATE)
         self.score = Score()
 
     def step(self):
@@ -33,7 +28,7 @@ class RealEnv(Environment):
 
         # Summon trash every couple of seconds
         if self.current_tick == self.summon_tick:
-            trash = self.trash_generator.summon_trash(MUSTARD_CONFIG)
+            trash = self.trash_generator.summon_trash(TrashConfig.MUSTARD)
             self.task_manager.add_trash(trash)
             self.current_tick = 0
         self.p_simulation.stepSimulation()
@@ -47,7 +42,7 @@ class RealEnv(Environment):
         p.stepSimulation()
         self.conveyor.convey()
         self.remove_uncaught_trash()
-        time.sleep(FRAME_RATE)
+        time.sleep(environment.FRAME_RATE)
         self.current_tick += 1
 
     def remove_uncaught_trash(self):
