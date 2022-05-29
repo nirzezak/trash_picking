@@ -50,6 +50,7 @@ class Trash(object):
         return new_gripping_points
 
 
+# TODO: Check what are the actual gripping points
 MUSTARD_CONFIG = {
     'path': r'models/YcbMustardBottle/model.urdf',
     'location': [0, 0, 1],

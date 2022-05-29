@@ -61,6 +61,12 @@ class Environment(object):
         self.task_manager.notify_arms()
         self.task_manager.remove_completed_tasks()
 
+        # Simulate the arms
+        for arm in self.arms:
+            # TODO: Uncomment
+            # arm.ur5_step()
+            pass
+
         # Simulate the environment
         p.stepSimulation()
         self.conveyor.convey()

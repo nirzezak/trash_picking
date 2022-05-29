@@ -136,6 +136,7 @@ class TaskManager(object):
                     trash_bin = self._find_closest_bin(trash, [arm, ])
                     task = Task(trash, [arm, ], trash_bin, self.trash_velocity)
                     self.unassigned_trash[i] = None
+                    # TODO: Think about arm assignment algorithm
                     self.available_arms.pop(0)
                     self._add_task_to_waiting_list(task)
             # Big trash
