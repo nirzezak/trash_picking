@@ -51,9 +51,5 @@ class Trash(object):
 
         return new_gripping_points
 
-
-MUSTARD_CONFIG = {
-    'path': r'models/YcbMustardBottle/model.urdf',
-    'location': [0, 0, 0.7],
-    'gripping_points': [[0, 0, 1]],
-}
+    def get_id(self):
+        return self.id
