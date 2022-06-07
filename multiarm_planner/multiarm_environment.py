@@ -87,12 +87,12 @@ class MultiarmEnvironment:
                            cache_roadmaps=cache_roadmaps,
                            num_prm_nodes=num_prm_nodes)
                            
-    def _mrdrrt(self, start_configs, goal_configs,
+    def _mrdrrt(self, ur5_arms, start_configs, goal_configs,
               ur5_poses, target_eff_poses=None, obstacles=None,
               resolutions=0.1, task_path=None, cache_roadmaps=False, num_prm_nodes=50):
         start_configs = tuple(tuple(conf) for conf in start_configs)
         goal_configs = tuple(tuple(conf) for conf in goal_configs)
-        self.setup_run(ur5_poses, start_configs, target_eff_poses, obstacles)
+        self.setup_run(ur5_poses, start_configs, target_eff_poses, obstacles, specific_ur5s=ur5_arms)
         env = MultiRobotUR5Env(self.ur5_group, resolutions, self.obstacles)
         mrdrrt = MRdRRTPlanner(env, visualize=self.visualize)
 
@@ -125,7 +125,7 @@ class MultiarmEnvironment:
         current_configs, goal_configs, current_poses = self.get_configs_for_rrt(ur5_arms, goal_positions)
         start_configs = current_configs if start_configs is None else start_configs
 
-        return self._mrdrrt(start_configs, goal_configs, current_poses)
+        return self._mrdrrt(ur5_arms, start_configs, goal_configs, current_poses)
 
     def demo_path(self, ur5_poses, start_configs, path_conf):
         self.ur5_group.setup(ur5_poses, start_configs)

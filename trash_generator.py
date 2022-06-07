@@ -1,5 +1,4 @@
 from trash import Trash
-from utils import add_element_wise
 
 TRASH_BASE_OFFSET_FROM_CONV = [0, 0, 0.5]
 
