@@ -16,12 +16,12 @@ from trash_types import TrashTypes
 
 URDF_FILES_PATH = "models"
 CONVEYOR_LOCATION = [0, 0, 0.25]
-BINS_LOCATIONS = [[1.5, 0.0, 0.1], [-1.5, 0.0, 0.1]]
+BINS_LOCATIONS = [[1.5, 0.0, 0.1], [-1, 0.0, 0.1]]
 UR5_LOCATIONS = [
-    ([1, 0, 1], p.getQuaternionFromEuler([math.pi, 0, 0])),
-    ([1, 1, 1], p.getQuaternionFromEuler([math.pi, 0, 0])),
-    ([-1, 0, 1], p.getQuaternionFromEuler([math.pi, 0, 0])),
-    ([-1, 1, 1], p.getQuaternionFromEuler([math.pi, 0, 0])),
+    ([1, 0, 1.2], p.getQuaternionFromEuler([math.pi, 0, 0])),
+    ([1, 1, 1.2], p.getQuaternionFromEuler([math.pi, 0, 0])),
+    ([-0.8, -0.6, 1], p.getQuaternionFromEuler([0, 0, 0])),
+    # ([-1, 1, 1.2], p.getQuaternionFromEuler([math.pi, 0, 0])),
 ]
 
 TRASH_SUMMON_INTERVAL = 1
@@ -40,7 +40,7 @@ class Environment(object):
         if set_pybullet_utils_p:
             pybullet_utils.p = self.p_simulation
 
-        self.p_simulation.setGravity(0, 0, -9.8)
+        self.p_simulation.setGravity(0, 0, -3)
 
         # Creating the environment
         self.plane = self.p_simulation.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))

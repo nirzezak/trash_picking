@@ -4,6 +4,7 @@ import time
 import pybullet as p
 
 import environment
+from background_environment import BackgroundEnv
 from environment import Environment
 from score import Score
 from task_manager import TaskManager
@@ -15,23 +16,24 @@ class RealEnv(Environment):
         """"
         :param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
         """
-        super().__init__(connection_mode, conveyor_speed=0.25)
+        super().__init__(connection_mode, conveyor_speed=0.00025)
 
         # Manage the real environment: clocks, and scoreboard
         self.task_manager = TaskManager(self.arms, self.bins, self.conveyor.speed)
         self.current_tick = 0
         self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL / environment.FRAME_RATE)
         self.score = Score()
+        self.summoned = False
 
     def step(self):
         # TODO: Could be converted to an event loop
 
         # Summon trash every couple of seconds
-        if self.current_tick == self.summon_tick:
+        if self.current_tick == self.summon_tick and not self.summoned:
+            self.summoned = True
             trash = self.trash_generator.summon_trash(TrashConfig.MUSTARD)
             self.task_manager.add_trash(trash)
             self.current_tick = 0
-        self.p_simulation.stepSimulation()
 
         # Call managing methods
         self.task_manager.try_dispatch_tasks()
@@ -39,10 +41,13 @@ class RealEnv(Environment):
         self.task_manager.remove_completed_tasks()
 
         # Simulate the environment
-        p.stepSimulation()
-        self.conveyor.convey()
+        for arm in self.arms:
+            arm.ur5_step()
+
+        self.p_simulation.stepSimulation()
+        # self.conveyor.convey()
         self.remove_uncaught_trash()
-        time.sleep(environment.FRAME_RATE)
+        # time.sleep(environment.FRAME_RATE)
         self.current_tick += 1
 
     def remove_uncaught_trash(self):

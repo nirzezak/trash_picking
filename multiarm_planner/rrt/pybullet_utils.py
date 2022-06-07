@@ -378,10 +378,13 @@ def get_extend_fn(body, joints, resolutions=None):
 
 # Collision
 
+# def pairwise_collision(body1, body2, max_distance=MAX_DISTANCE):  # 10000
+#     # getContactPoints
+#     # return len(p.getClosestPoints(bodyA=body1, bodyB=body2, distance=max_distance)) != 0
+#     return p.getContactPoints(body1, body2) != ()
+
 def pairwise_collision(body1, body2, max_distance=MAX_DISTANCE):  # 10000
-    # getContactPoints
-    # return len(p.getClosestPoints(bodyA=body1, bodyB=body2, distance=max_distance)) != 0
-    return p.getContactPoints(body1, body2) != ()
+    return len(p.getClosestPoints(bodyA=body1, bodyB=body2, distance=max_distance)) != 0
 
 
 def pairwise_link_collision(body1, link1, body2, link2, max_distance=MAX_DISTANCE):  # 10000

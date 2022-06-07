@@ -22,6 +22,7 @@ class MultiarmEnvironment:
         # configure_pybullet(rendering=gui, debug=False, yaw=0, pitch=0, dist=1.0, target=(0, 0, 0.3))
 
         self.p_env = p_env
+        self.p_env.configureDebugVisualizer(self.p_env.COV_ENABLE_GUI, 0)
 
         self.gui = gui
         self.visualize = visualize
@@ -64,7 +65,7 @@ class MultiarmEnvironment:
                      sample=self.ur5_group.sample_fn,
                      extend=extend_fn,
                      collision=collision_fn,
-                     iterations=10000,
+                     iterations=100,
                      smooth=5,
                      visualize=self.visualize,
                      fk=self.ur5_group.forward_kinematics,

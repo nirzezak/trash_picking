@@ -3,6 +3,10 @@ import time
 from enum import Enum, auto
 
 import numpy as np
+import pybullet as p
+
+import trash_configs
+from background_environment import BackgroundEnv
 
 
 class TaskState(Enum):
@@ -38,6 +42,8 @@ class Task(object):
         y_trash = self.trash.location[1]
 
         self.travel_time = (y_arm - y_trash) / trash_velocity + time.time()
+        self.trash_pickup_location = self.trash.location.copy()
+        self.trash_pickup_location[1] = self.arms[0].pose[0][1]
         # Notify 1 second before the travel time to the destination
         self.notify_time = self.travel_time - 1
         self.state = TaskState.TASK_WAIT
@@ -51,9 +57,12 @@ class TaskManager(object):
         @param trash_velocity: The velocity of the trash, we assume velocity
         only on the Y axis.
         """
+        self.arms = arms
         self.available_arms = arms.copy()
         self.bins = bins
         self.trash_velocity = trash_velocity
+
+        self.background_env = BackgroundEnv(p.DIRECT)
 
         self.unassigned_trash = []
         self.waiting_tasks = []
@@ -131,13 +140,25 @@ class TaskManager(object):
             # Small trash
             if self.unassigned_trash[i].trash_size == 1:
                 if len(self.available_arms) > 0:
-                    arm = self.available_arms[0]
+                    arm = self.available_arms[2]
                     trash = self.unassigned_trash[i]
                     trash_bin = self._find_closest_bin(trash, [arm, ])
                     task = Task(trash, [arm, ], trash_bin, self.trash_velocity)
                     self.unassigned_trash[i] = None
                     self.available_arms.pop(0)
                     self._add_task_to_waiting_list(task)
+                    arm.add_task(task)
+                    path_to_trash = None
+                    while path_to_trash is None:
+                        path_to_trash = self.background_env.compute_motion_plan({self.arms.index(arm): (trash_configs.TrashConfig.MUSTARD, task.trash.location)})
+
+                    path_to_bin = None
+                    while path_to_bin is None:
+                        path_to_bin = self.background_env.path_to_bin([self.arms.index(arm)], task.dest.location, [path_to_trash[-1]])
+
+                    arm.add_path(path_to_trash)
+                    arm.add_path(path_to_bin)
+
             # Big trash
             else:
                 arms_indices = self._find_adjacent_arms()
@@ -179,6 +200,8 @@ class TaskManager(object):
         # Change state of tasks here to TASK_DISPATCHED
         for task in awakened_tasks:
             task.state = TaskState.TASK_DISPATCHED
+            for arm in task.arms:
+                arm.start_task()
 
         # TODO: Ask Nir how to actually talk to the arms
 

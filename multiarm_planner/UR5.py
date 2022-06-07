@@ -62,7 +62,7 @@ NORMAL = 0
 TOUCHED = 1
 
 class Robotiq2F85:
-    TICKS_TO_CHANGE_GRIP = 100
+    TICKS_TO_CHANGE_GRIP = 250
 
     def __init__(self, p_simulation, ur5, color, replace_textures=True):
         """
@@ -385,6 +385,7 @@ class UR5:
         self.state = ArmState.IDLE
         self.current_tick = 0
         self.start_tick = 0
+        self.first_config = False
 
     def update_closest_points(self, obstacles_ids=None):
         # if type(obstacles_ids) is list:
@@ -459,11 +460,11 @@ class UR5:
 
     def disable(self, idx=0):
         self.enabled = False
-        self.set_pose([
-            [idx, 20, 0],
-            [0.0, 0.0, 0.0, 1.0]])
-        self.reset()
-        self.step()
+        # self.set_pose([
+        #     [idx, 20, 0],
+        #     [0.0, 0.0, 0.0, 1.0]])
+        # self.reset()
+        # self.step()
 
     def enable(self):
         self.enabled = True
@@ -486,7 +487,9 @@ class UR5:
         self.paths.append(path)
 
     def start_task(self):
+        print('Arm starting task!')
         self.state = ArmState.MOVING_TO_TRASH
+        self.first_config = True
 
     def ur5_step(self):
         if self.state == ArmState.IDLE:
@@ -503,46 +506,53 @@ class UR5:
 
             current_path = self.paths[0]
 
-            if all([np.abs(current_joint_state[i] - current_path[0][i]) < 1e-3 for i in range(len(self._robot_joint_indices))]):
-                # Reached target configuration
-                current_path.pop()
+            if self.first_config or all([np.abs(current_joint_state[i] - current_path[0][i]) < 1e-2 for i in range(len(self._robot_joint_indices))]):
+                if not self.first_config:
+                    # Reached target configuration
+                    current_path.pop(0)
 
+                self.first_config = False
                 if len(current_path) > 0:
                     # Move to next configuration
                     next_target_config = current_path[0]
                     self.p_simulation.setJointMotorControlArray(
                         self.body_id, self._robot_joint_indices,
-                        p.POSITION_CONTROL, next_target_config,
+                        self.p_simulation.POSITION_CONTROL, next_target_config,
                         positionGains=type(self).UR5_MOVE_SPEED * np.ones(len(self._robot_joint_indices))
                     )
 
                 else:
                     path_completed = True
-                    self.paths.pop()
+                    self.paths.pop(0)
 
         if path_completed:
             self.start_tick = self.current_tick
 
             if self.state == ArmState.MOVING_TO_TRASH:
                 # Finished moving to trash - now pick it up
+                print('Closing gripper')
                 self.state = ArmState.PICKING_TRASH
                 self.close_gripper()
 
             elif self.state == ArmState.MOVING_TO_BIN:
                 # Finished moving to bin - drop trash in bin
+                print('Opening Gripper')
                 self.state = ArmState.RELEASING_TRASH
                 self.open_gripper()
 
-        if ArmState.PICKING_TRASH:
+        if self.state == ArmState.PICKING_TRASH:
             # Check if gripper picked trash
             if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
                 self.state = ArmState.MOVING_TO_BIN
+                # self.stop_gripper()
+                print('Moving back')
 
-        if ArmState.RELEASING_TRASH:
+        if self.state == ArmState.RELEASING_TRASH:
             if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
                 self.state = ArmState.IDLE
                 # self.tasks[0].state = trash_generator.TaskState.TASK_DONE
-                self.tasks.pop()
+                self.stop_gripper()
+                self.tasks.pop(0)
 
     def close_gripper(self):
         if self.end_effector is not None:
@@ -561,6 +571,16 @@ class UR5:
                 1,
                 self.p_simulation.VELOCITY_CONTROL,
                 targetVelocity=-5,
+                force=10000
+            )
+
+    def stop_gripper(self):
+        if self.end_effector is not None:
+            self.p_simulation.setJointMotorControl2(
+                self.end_effector.body_id,
+                1,
+                self.p_simulation.VELOCITY_CONTROL,
+                targetVelocity=0,
                 force=10000
             )
 
@@ -623,9 +643,9 @@ class UR5:
             self.GROUP_INDEX['arm'],
             self.get_arm_joint_values())
 
-    def set_target_end_eff_pos(self, pos):
+    def set_target_end_eff_pos(self, pos, orientation=None):
         self.set_arm_joints(
-            self.inverse_kinematics(position=pos))
+            self.inverse_kinematics(position=pos, orientation=orientation))
 
     def inverse_kinematics(self, position, orientation=None):
         return inverse_kinematics(
