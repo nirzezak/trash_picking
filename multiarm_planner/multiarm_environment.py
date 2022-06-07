@@ -1,8 +1,6 @@
 from itertools import chain
-import pybullet as p
 from time import sleep
 from .obstacles import Obstacle
-from .profile_utils import timefunc
 from .ur5_group import UR5Group
 
 from .rrt.rrt_connect import birrt

@@ -1,5 +1,4 @@
 import math
-import time
 
 import pybullet as p
 
@@ -39,10 +38,12 @@ class RealEnv(Environment):
         self.task_manager.remove_completed_tasks()
 
         # Simulate the environment
-        p.stepSimulation()
+        for arm in self.arms:
+            arm.ur5_step()
+
+        self.p_simulation.stepSimulation()
         self.conveyor.convey()
         self.remove_uncaught_trash()
-        time.sleep(environment.FRAME_RATE)
         self.current_tick += 1
 
     def remove_uncaught_trash(self):
