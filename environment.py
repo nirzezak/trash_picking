@@ -24,7 +24,7 @@ UR5_LOCATIONS = [
     ([-1, 1, 1], p.getQuaternionFromEuler([math.pi, 0, 0])),
 ]
 
-TRASH_SUMMON_INTERVAL = 1
+TRASH_SUMMON_INTERVAL = 1000
 FRAME_RATE = 1 / 240.
 
 

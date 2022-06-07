@@ -14,12 +14,12 @@ class RealEnv(Environment):
         """"
         :param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
         """
-        super().__init__(connection_mode, conveyor_speed=0.25)
+        super().__init__(connection_mode, conveyor_speed=0.025)
 
         # Manage the real environment: clocks, and scoreboard
         self.task_manager = TaskManager(self.arms, self.bins, self.conveyor.speed)
         self.current_tick = 0
-        self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL / environment.FRAME_RATE)
+        self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL)
         self.score = Score()
 
     def step(self):
