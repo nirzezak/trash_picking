@@ -39,7 +39,7 @@ class RealEnv(Environment):
         self.task_manager.remove_completed_tasks()
 
         # Simulate the environment
-        p.stepSimulation()
+        self.p_simulation.stepSimulation()
         self.conveyor.convey()
         self.remove_uncaught_trash()
         time.sleep(environment.FRAME_RATE)
