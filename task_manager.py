@@ -227,3 +227,21 @@ class TaskManager(object):
             if task.trash.id == trash_id:
                 task.state = TaskState.TASK_DONE
                 return
+
+    @staticmethod
+    def get_ticks_for_path_to_trash_heuristic(path_len: int):
+        if path_len < 10:
+            print('WARNING: unexpected path to trash length, enhance the get_ticks_for_path_to_trash_heuristic')
+            return path_len * 40  # arbitrary, we didn't see such examples
+        return 1 + 2 + 47.4 * (path_len - 2)
+        # Explanation:
+        # MOVING_TO_TRASH #ticks per conf pattern: 2,x,...,x,1,x,... where x is 47.4 in expectation
+
+    @staticmethod
+    def get_ticks_for_path_to_bin_heuristic(path_len: int):
+        if path_len < 3:
+            print('WARNING: unexpected path to trash length, enhance the get_ticks_for_path_to_bin_heuristic')
+            return path_len * 40  # arbitrary, we didn't see such examples
+        return 1 + 47 + 48 * (path_len - 2)
+        # Explanation:
+        # MOVING_TO_BIN #ticks per conf pattern: 1,47,48,48,...
