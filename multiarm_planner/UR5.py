@@ -486,9 +486,20 @@ class UR5:
     def add_path(self, path):
         self.paths.append(path)
 
-    def start_task(self):
+    def start_task(self, print_ticks_stat=False):
+        print('Arm starting task!')
         self.state = ArmState.MOVING_TO_TRASH
         self.first_config = True
+        # For ticks statistics
+        if print_ticks_stat:
+            self.ticks_for_curr_conf_move = 0
+            self.ticks_stat = {
+                f'{ArmState.MOVING_TO_TRASH.name} #conf': len(self.paths[0]),
+                f'{ArmState.MOVING_TO_BIN.name} #conf': len(self.paths[1]),
+                f'{ArmState.MOVING_TO_TRASH.name} #ticks per conf': [],
+                f'{ArmState.MOVING_TO_BIN.name} #ticks per conf': []
+            }
+            self.print_ticks_stat = print_ticks_stat
 
     def ur5_step(self):
         if self.state == ArmState.IDLE:
@@ -505,9 +516,15 @@ class UR5:
 
             current_path = self.paths[0]
 
+            if self.print_ticks_stat:
+                self.ticks_for_curr_conf_move += 1
+
             if self.first_config or all([np.abs(current_joint_state[i] - current_path[0][i]) < 1e-2 for i in range(len(self._robot_joint_indices))]):
                 if not self.first_config:
                     # Reached target configuration
+                    if self.print_ticks_stat:
+                        self.ticks_stat[f'{self.state.name} #ticks per conf'].append(self.ticks_for_curr_conf_move)
+                        self.ticks_for_curr_conf_move = 0
                     current_path.pop(0)
 
                 self.first_config = False
@@ -544,6 +561,10 @@ class UR5:
 
         if self.state == ArmState.RELEASING_TRASH:
             if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
+                if self.print_ticks_stat:
+                    print(f'Total ticks: {self.current_tick}')
+                    for k, v in self.ticks_stat.items():
+                        print(f'{k}: {v}')
                 self.state = ArmState.IDLE
                 # self.tasks[0].state = trash_generator.TaskState.TASK_DONE
                 self.stop_gripper()
