@@ -51,5 +51,8 @@ class Trash(object):
 
         return new_gripping_points
 
+    def get_curr_position(self):
+        return self.p_simulation.getBasePositionAndOrientation(self.id)[0]
+
     def get_id(self):
         return self.id

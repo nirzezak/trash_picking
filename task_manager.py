@@ -8,6 +8,8 @@ import pybullet as p
 import trash_configs
 from background_environment import BackgroundEnv
 
+ARM_TO_TRASH_MAX_DIST = [1, 1, 1]  # TODO - find real values
+
 
 class TaskState(Enum):
     TASK_WAIT = auto()
@@ -15,6 +17,7 @@ class TaskState(Enum):
     TASK_DONE = auto()
 
 
+# TODO SHIR - fit this for pairs ?
 class Task(object):
     def __init__(self, trash, arms, dest, trash_velocity):
         """
@@ -47,24 +50,43 @@ class Task(object):
         self.state = TaskState.TASK_WAIT
 
 
+# TODO SHIR - use tick as time instead of real time
 class TaskManager(object):
-    def __init__(self, arms, bins, trash_velocity):
+    def __init__(self, arms, arms_idx_pairs, bins, trash_velocity):
         """
         @param arms: A list of all of the available arms
+        @param arms_idx_pairs: a list of arm pairs, each pair is represented as a list (length=2),
+        containing the indices of the arms of that pair.
+        arm pair should be from the same side of the conveyor and without other arms between.
+        we assume that the distance between each pair is the same
         @param bins: A list of all of the available bins
         @param trash_velocity: The velocity of the trash, we assume velocity
         only on the Y axis.
+
+        axis 0 - x, axis 1 - y, axis 2 - z
         """
         self.arms = arms
-        self.available_arms = arms.copy()
+        # self.available_arms = arms.copy() TODO delete
+        self.arms_idx_pairs = arms_idx_pairs
         self.bins = bins
         self.trash_velocity = trash_velocity
 
         self.background_env = BackgroundEnv(p.DIRECT)
 
-        self.unassigned_trash = []
+        self.single_trash = []  # unassigned trash, that couldn't be paired yet
         self.waiting_tasks = []
         self.dispatched_tasks = []
+
+        # calculate distance between arm pair in y axis, assuming this distance is the same for each pair
+        arm_pair0_y_axis = [self.arms[idx].get_pose()[0][1] for idx in arms_idx_pairs[0]]  # list of the y axis value of the arms in pair 0
+        arm_pair_dist_y_axis = abs(arm_pair0_y_axis[0] - arm_pair0_y_axis[1])  #
+
+        self.max_dist_between_trash_pair_y_axis = 2 * ARM_TO_TRASH_MAX_DIST[1] + arm_pair_dist_y_axis
+
+    def get_arm_pair(self, arm_idx):
+        for pair in self.arms_idx_pairs:
+            if arm_idx in pair:
+                return pair
 
     def _find_closest_bin(self, trash, arms):
         # TODO: This function is probably useless, we can hardcode it, but I was
@@ -94,23 +116,24 @@ class TaskManager(object):
 
         return closest_bin
 
-    def _find_adjacent_arms(self):
-        """
-        Finds 2 available adjacent arms
-
-        @returns the indices of the arms if found, else None
-        """
-        for i in range(len(self.available_arms)):
-            for j in range(i + 1, len(self.available_arms)):
-                arm1 = self.available_arms[i]
-                arm2 = self.available_arms[j]
-                loc1 = arm1.pose[0]
-                loc2 = arm2.pose[0]
-                # If they are on the same side, their x coordinates multiplied would be positive
-                # If they are adjacent, they will have a shift of 1 in the y coordinate
-                if (loc1[0] * loc2[0] > 0) and abs(loc1[1] - loc2[1]) == 1:
-                    return i, j
-        return None
+    # TODO delete ?
+    # def _find_adjacent_arms(self):
+    #     """
+    #     Finds 2 available adjacent arms
+    #
+    #     @returns the indices of the arms if found, else None
+    #     """
+    #     for i in range(len(self.available_arms)):
+    #         for j in range(i + 1, len(self.available_arms)):
+    #             arm1 = self.available_arms[i]
+    #             arm2 = self.available_arms[j]
+    #             loc1 = arm1.pose[0]
+    #             loc2 = arm2.pose[0]
+    #             # If they are on the same side, their x coordinates multiplied would be positive
+    #             # If they are adjacent, they will have a shift of 1 in the y coordinate
+    #             if (loc1[0] * loc2[0] > 0) and abs(loc1[1] - loc2[1]) == 1:
+    #                 return i, j
+    #     return None
 
     def _add_task_to_waiting_list(self, task):
         """
@@ -123,54 +146,107 @@ class TaskManager(object):
 
         self.waiting_tasks.append(task)
 
+    def can_be_trash_pair(self, trash1, trash2):
+        """"
+        Return True if trash1, trash2 can be a trash pair, False otherwise.
+        trash1, trash2 can be a trash pair if:
+        1. trash1 y axis != trash2 y axis
+        2. distance(trash1 y axis, trash2 y axis) < self.max_dist_between_trash_pair_y_axis
+        """
+        trash1_y_axis, trash2_y_axis = trash1.get_curr_position()[1], trash2.get_curr_position()[1]
+        return trash1_y_axis != trash2_y_axis and \
+               abs(trash1_y_axis - trash2_y_axis) < self.max_dist_between_trash_pair_y_axis
+
+    def add_trash_pair_task_to_arm_pair(self, trash1, trash2):
+        """"
+        Try to assign trash1, trash2 pair to some pair of arms.
+        Returns True if the pair is assigned, False otherwise.
+        @pre: trash1 y axis < trash2 y axis
+        """
+        # TODO SHIR
+        pass
+
+    def add_single_trash_task_to_arm(self, trash):
+        """"
+        Try to assign @param trash to some pair of arms.
+        Returns True if the trash is assigned, False otherwise.
+        """
+        # TODO SHIR
+        pass
+
     def add_trash(self, trash):
         """
-        Add a trash object to the list of trash we need to manage
         @param trash: The trash to add
+        Try to find a trash pair for @param trash,
+        if a pair is found, give this 2 trash task to a pair of arms (if possible)
+        otherwise, add @param trash to self.single_trash list
         """
-        self.unassigned_trash.append(trash)
+        for older_trash in self.single_trash:
+            if self.can_be_trash_pair(trash, older_trash):
+                # try to find pair of arms for this trash pair
+                if self.add_trash_pair_task_to_arm_pair(trash, older_trash):
+                    # this pair trash is assigned to some pair of arms
+                    return
+        # failed to assign this trash, add trash to self.single_trash
+        self.single_trash.append(trash)
 
-    def try_dispatch_tasks(self):
+    def handle_single_trash_that_passed_pnr(self):
+        """"
+        - Remove all trash from self.single_trash that passed the PNR (point of no return- a point in which this trash
+        cannot be paired in the future, and will stay forever alone),
+        - Try to assign each of those lonely trash to some arm. If it can't be assigned, give up on this trash,
+        it considered as a lost cause, and we won't pick it.
+        - the PNR in this case is a value on the 2nd axis.
         """
-        Try to dispatch trash objects to arms
-        """
-        for i in range(len(self.unassigned_trash)):
-            # Small trash
-            if self.unassigned_trash[i].trash_size == 1:
-                if len(self.available_arms) > 0:
-                    arm = self.available_arms[0]
-                    trash = self.unassigned_trash[i]
-                    trash_bin = self._find_closest_bin(trash, [arm, ])
-                    task = Task(trash, [arm, ], trash_bin, self.trash_velocity)
-                    self.unassigned_trash[i] = None
-                    self.available_arms.pop(0)
-                    self._add_task_to_waiting_list(task)
+        for trash in self.single_trash:
+            if trash.get_curr_position()[2] >= self.max_dist_between_trash_pair_y_axis:
+                self.single_trash.remove(trash)
+                # try to assign a single trash task
+                self.add_single_trash_task_to_arm(trash)
 
-                    # arm.add_task(task)
-                    # # TODO: Fix this - trash generation should be dynamic
-                    # path_to_trash = self.background_env.compute_motion_plan({self.arms.index(arm): (trash_configs.TrashConfig.MUSTARD, task.trash.location)})
-                    # path_to_bin = self.background_env.path_to_bin([self.arms.index(arm)], task.dest.location, [path_to_trash[-1]])
-                    # arm.add_path(path_to_trash)
-                    # arm.add_path(path_to_bin)
+    # TODO - delete?
+    # def try_dispatch_tasks(self):
+    #     """
+    #     Try to dispatch trash objects to arms
+    #     """
+    #     for i in range(len(self.unassigned_trash)):
+    #         # Small trash
+    #         if self.unassigned_trash[i].trash_size == 1:
+    #             if len(self.available_arms) > 0:
+    #                 arm = self.available_arms[0]
+    #                 trash = self.unassigned_trash[i]
+    #                 trash_bin = self._find_closest_bin(trash, [arm, ])
+    #                 task = Task(trash, [arm, ], trash_bin, self.trash_velocity)
+    #                 self.unassigned_trash[i] = None
+    #                 self.available_arms.pop(0)
+    #                 self._add_task_to_waiting_list(task)
+    #
+    #                 # arm.add_task(task)
+    #                 # # TODO: Fix this - trash generation should be dynamic
+    #                 # path_to_trash = self.background_env.compute_motion_plan({self.arms.index(arm): (trash_configs.TrashConfig.MUSTARD, task.trash.location)})
+    #                 # path_to_bin = self.background_env.path_to_bin([self.arms.index(arm)], task.dest.location, [path_to_trash[-1]])
+    #                 # arm.add_path(path_to_trash)
+    #                 # arm.add_path(path_to_bin)
+    #
+    #         # Big trash
+    #         else:
+    #             pass
+    #             # arms_indices = self._find_adjacent_arms()
+    #             # if arms_indices is not None:
+    #             #     idx1, idx2 = arms_indices
+    #             #     arm1 = self.available_arms[idx1]
+    #             #     arm2 = self.available_arms[idx2]
+    #             #     trash = self.unassigned_trash[i]
+    #             #     trash_bin = self._find_closest_bin(trash, [arm1, arm2])
+    #             #     task = Task(trash, [arm1, arm2], trash_bin, self.trash_velocity)
+    #             #     self.unassigned_trash[i] = None
+    #             #     self.available_arms = self.available_arms[:idx1] + \
+    #             #                           self.available_arms[idx1 + 1:idx2] + \
+    #             #                           self.available_arms[idx2 + 1:]
+    #             #     self._add_task_to_waiting_list(task)
 
-            # Big trash
-            else:
-                arms_indices = self._find_adjacent_arms()
-                if arms_indices is not None:
-                    idx1, idx2 = arms_indices
-                    arm1 = self.available_arms[idx1]
-                    arm2 = self.available_arms[idx2]
-                    trash = self.unassigned_trash[i]
-                    trash_bin = self._find_closest_bin(trash, [arm1, arm2])
-                    task = Task(trash, [arm1, arm2], trash_bin, self.trash_velocity)
-                    self.unassigned_trash[i] = None
-                    self.available_arms = self.available_arms[:idx1] + \
-                                          self.available_arms[idx1 + 1:idx2] + \
-                                          self.available_arms[idx2 + 1:]
-                    self._add_task_to_waiting_list(task)
-
-        # Remove assigned trash
-        self.unassigned_trash = list(filter(lambda x: x is not None, self.unassigned_trash))
+    # Remove assigned trash
+    # self.single_trash = list(filter(lambda x: x is not None, self.single_trash))
 
     def notify_arms(self):
         """
@@ -206,14 +282,8 @@ class TaskManager(object):
 
     def remove_completed_tasks(self):
         """
-        Remove tasks that were completed, and return the arms back to the
-        available arms list
+        Remove tasks that were completed
         """
-        for task in self.dispatched_tasks:
-            if task.state == TaskState.TASK_DONE:
-                self.available_arms.extend(task.arms)
-
-        # Remove the completed tasks
         self.dispatched_tasks = list(filter(lambda x: x.state != TaskState.TASK_DONE, self.dispatched_tasks))
 
     def remove_uncaught_trash_task(self, trash_id):
