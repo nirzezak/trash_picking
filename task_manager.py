@@ -235,7 +235,12 @@ class TaskManager(object):
             return path_len * 40  # arbitrary, we didn't see such examples
         return 1 + 2 + 47.4 * (path_len - 2)
         # Explanation:
-        # MOVING_TO_TRASH #ticks per conf pattern: 2,x,...,x,1,x,... where x is 47.4 in expectation
+        # The path is built from ur5 configuration list,
+        # each configuration change takes some number of ticks (not fixed).
+        # For each path we can calculate the series of #tick it took for each configuration change.
+        # We noticed that for MOVING_TO_TRASH path, this "#ticks per configuration" series has a fixed pattern
+        # (even when using different trash locations)
+        # The pattern we found: 2,x,...,x,1,x,... where x is 47.4 in expectation (#ticks per conf series)
 
     @staticmethod
     def get_ticks_for_path_to_bin_heuristic(path_len: int):
@@ -244,4 +249,9 @@ class TaskManager(object):
             return path_len * 40  # arbitrary, we didn't see such examples
         return 1 + 47 + 48 * (path_len - 2)
         # Explanation:
-        # MOVING_TO_BIN #ticks per conf pattern: 1,47,48,48,...
+        # The path is built from ur5 configuration list,
+        # each configuration change takes some number of ticks (not fixed).
+        # For each path we can calculate the series of #tick it took for each configuration change.
+        # We noticed that for MOVING_TO_BIN path, this "#ticks per configuration" series has a fixed pattern
+        # (even when using different trash locations)
+        # The pattern we found: 1,47,48,48,... (#ticks per conf series)
