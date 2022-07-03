@@ -1,3 +1,4 @@
+import json
 import math
 import os
 
@@ -45,10 +46,30 @@ class Environment(object):
 
         # Creating the environment
         self.plane = self.p_simulation.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
-        self.bins = [Bin(self.p_simulation, bin_loc, TrashTypes.PLASTIC) for bin_loc in BINS_LOCATIONS]
+        self.bins = self._load_bins()
         self.arms = [UR5.UR5(self.p_simulation, ur5_loc) for ur5_loc in UR5_LOCATIONS]
         self.arms_idx_pairs = ARMS_IDX_PAIRS
         self.arms_manager = multiarm_environment.MultiarmEnvironment(self.p_simulation, self.arms, gui=False, visualize=False)
         self.conveyor = Conveyor(self.p_simulation, CONVEYOR_LOCATION, speed=conveyor_speed, arms=self.arms)
 
         self.trash_generator = TrashGenerator(self.p_simulation, TRASH_SUMMON_INTERVAL, [1, 2, 0.5], CONVEYOR_LOCATION)
+
+    def _load_bins(self):
+        """
+        Load the bins from the 'trash_bins_locations.json' file.
+        """
+        with open('trash_bins_locations.json', 'r') as f:
+            bins_data = json.load(f)
+
+        bins = []
+        bins_type = {
+            'PLASTIC': TrashTypes.PLASTIC,
+            'PAPER': TrashTypes.PAPER,
+            'ELECTRONIC': TrashTypes.ELECTRONIC,
+        }
+        for b in bins_data:
+            loc = b['loc']
+            trash_type = bins_type[b['type']]
+            bins.append(Bin(self.p_simulation, loc, trash_type))
+
+        return bins
