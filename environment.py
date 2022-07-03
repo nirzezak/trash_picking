@@ -15,7 +15,7 @@ from trash_generator import TrashGenerator
 from trash_types import TrashTypes
 
 URDF_FILES_PATH = "models"
-CONVEYOR_LOCATION = [0, 0, 0.25]
+CONVEYOR_LOCATION = [0, 2, 0.25]
 BINS_LOCATIONS = [[1.5, 0.0, 0.1], [-1.5, 0.0, 0.1]]
 UR5_LOCATIONS = [
     ([1, 0, 1], p.getQuaternionFromEuler([math.pi, 0, 0])),
