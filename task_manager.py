@@ -305,7 +305,7 @@ class TaskManager(object):
         Note that since the conveyor only moves objects in the Y axis, the
         distance is calculated based on that.
         """
-        curr_location = p.getBasePositionAndOrientation(trash.id)[0]
+        curr_location = trash.get_curr_position()
         diff = abs(curr_location[1] - trash_dest[1])
         return math.ceil(diff / 0.00104)
         # TODO - 0.00104 is based on the current conveyor speed, change this to be general for every conveyor speed
