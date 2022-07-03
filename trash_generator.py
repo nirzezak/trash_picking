@@ -13,11 +13,8 @@ class TrashGenerator(object):
         self.trash = []
         self.p_simulation = p_simulation
 
-    def summon_trash(self, trash_config, forced_location=None):
-        config = trash_config.value
-        if forced_location is not None:
-            config['location'] = forced_location
-        new_trash = Trash(self.p_simulation, **config)
+    def summon_trash(self, trash_config):
+        new_trash = Trash(self.p_simulation, **trash_config)
         self.trash.append(new_trash)
         return new_trash
 
