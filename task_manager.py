@@ -298,6 +298,18 @@ class TaskManager(object):
                 task.state = TaskState.TASK_DONE
                 return
 
+    def calculate_ticks_to_destination_on_conveyor(self, trash, trash_dest):
+        """
+        Calculate the number of ticks it takes to the trash object to get to the
+        destination.
+        Note that since the conveyor only moves objects in the Y axis, the
+        distance is calculated based on that.
+        """
+        curr_location = p.getBasePositionAndOrientation(trash.id)[0]
+        diff = abs(curr_location[1] - trash_dest[1])
+        return math.ceil(diff / 0.00104)
+        # TODO - 0.00104 is based on the current conveyor speed, change this to be general for every conveyor speed
+
     @staticmethod
     def get_ticks_for_path_to_trash_heuristic(path_len: int):
         if path_len < 10:
