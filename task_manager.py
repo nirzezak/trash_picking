@@ -5,12 +5,15 @@ from enum import Enum, auto
 import numpy as np
 import pybullet as p
 
-import trash_configs
 from background_environment import BackgroundEnv
-from multiarm_planner.UR5 import Robotiq2F85
+from multiarm_planner.UR5 import Robotiq2F85, UR5
+from trash import Trash
+from trash_bin import Bin
 
 ARM_TO_TRASH_MAX_DIST = [0.1, 0.1, 0.1]  # TODO - find real values
 TRASH_INIT_Y_VAL = -1  # TODO - make this dynamic
+ARMS_SAFETY_OFFSET = 0.1
+
 
 class TaskState(Enum):
     TASK_WAIT = auto()  # task waits to be executed
@@ -39,7 +42,7 @@ class Task(object):
 
 # TODO SHIR - use tick as time instead of real time
 class TaskManager(object):
-    def __init__(self, arms, arms_idx_pairs, bins, trash_velocity):
+    def __init__(self, arms: list[UR5], arms_idx_pairs: list[list[int]], bins: list[Bin], trash_velocity: float):
         """
         @param arms: A list of all of the available arms
         @param arms_idx_pairs: a list of arm pairs, each pair is represented as a list (length=2),
@@ -76,41 +79,50 @@ class TaskManager(object):
             if arm_idx in pair:
                 return pair
 
-    def _find_closest_bin(self, trash, arms):
+    def _find_closest_bin(self, trash: Trash, arm: UR5) -> list[int]:
+        """
+        Finds the closest bin to the arm, that handles this type of trash.
+
+        @param trash: The trash object we want to recycle.
+        @param arm: The arm that we will use.
+
+        @returns The location of the closest bin, with some offset to avoid
+        collisions when both arms need to work on that trash bin.
+        """
         # TODO: This function is probably useless, we can hardcode it, but I was
         # too lazy to do it now...
-        if len(arms) == 2:
-            # Calculate the distance from their halfway point
-            y1 = arms[0].pose[0][1]
-            y2 = arms[0].pose[0][1]
-            y_arm = (y1 + y2) / 2
-        else:
-            y_arm = arms[0].pose[0][1]
+        arm_loc = arm.pose[0]
+        arm_loc = np.array(arm_loc)
 
-        arms_avg_loc = arms[0].pose[0].copy()
-        arms_avg_loc[1] = y_arm
-        arms_avg_loc = np.array(arms_avg_loc)
-
+        # Find the closest bin
         closest_bin_distance = math.inf
-        closest_bin = None
+        closest_bin = self.bins[0]
         for trash_bin in self.bins:
             if trash_bin.trash_type == trash.trash_type:
                 # Calculate distance
                 trash_bin_loc = np.array(trash_bin.location)
-                distance = np.linalg.norm(arms_avg_loc - trash_bin_loc)
+                distance = np.linalg.norm(arm_loc - trash_bin_loc)
                 if distance < closest_bin_distance:
                     closest_bin_distance = distance
                     closest_bin = trash_bin
 
-        return closest_bin
+        # Return the location of that bin, with some small marginal offset to
+        # avoid collisions
+        trash_bin_loc = closest_bin.location.copy()
+        if arm_loc[1] > trash_bin_loc[1]:
+            # The arm is ahead than the bin, therefore the arm needs to go a
+            # little bit further ahead
+            trash_bin_loc[1] += ARMS_SAFETY_OFFSET
+        elif arm_loc[1] < trash_bin_loc[1]:
+            # The bin is ahead than the arm, therefore the arm needs to go a
+            # little bit further back
+            trash_bin_loc[1] -= ARMS_SAFETY_OFFSET
+        else:
+            # The arm and the bin are at the same Y offset, so no need for
+            # any safety offset (in this case, only 1 arm uses this bin)
+            pass
 
-    def calc_closest_bin_loc(self, trash, arm):
-        """
-        Returns a location for the arm to drop the trash, this location will be above a bin that should contain
-        this kind of trash.
-        """
-        # TODO OMER
-        return [0,0,1]
+        return trash_bin_loc
 
     # TODO delete ?
     # def _find_adjacent_arms(self):
@@ -207,7 +219,7 @@ class TaskManager(object):
             if last_assigned_task is None or start_tick > last_assigned_task.start_tick + last_assigned_task.len_in_ticks:
                 # this arm can do the new task!
                 # assign this task to the arm
-                bin_dst_loc = self.calc_closest_bin_loc(trash, arm)
+                bin_dst_loc = self._find_closest_bin(trash, arm)
                 arm_start_conf = arm.get_arm_joint_values() if last_assigned_task is None else last_assigned_task.path_to_bin[-1]  # TODO SHIR - verify this is ok
                 path_to_trash, path_to_bin = self.background_env.compute_motion_plan([arm_idx],
                                                                                      [trash.get_trash_config_at_loc(trash_picking_point)],
