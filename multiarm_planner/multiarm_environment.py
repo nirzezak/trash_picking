@@ -9,6 +9,23 @@ from .rrt.pybullet_utils import configure_pybullet, draw_line, remove_all_marker
 from .robot_ur5_env import MultiRobotUR5Env
 from .mrdrrt.mrdrrt_planner import MRdRRTPlanner
 
+def split_arms_conf_lst(arms_conf_lst, n_arm):
+    """
+    @param arms_conf_lst: list of configuration for all arms together (as obtained from birrt method in MultiarmEnvironment)
+    @param n_arm: number of arms used to create this @param arms_conf_lst
+    Returns list of configuration lists, for each arm separately
+    """
+    arm_conf_len = 6
+    return [[conf[arm_conf_len * i:arm_conf_len * (i + 1)] for conf in arms_conf_lst] for i in range(n_arm)]
+
+def split_arms_conf(arms_conf, n_arm):
+    """
+    @param arms_conf: 1 configuration of all arms together (as obtained from birrt method in MultiarmEnvironment)
+    @param n_arm: number of arms used to create this @param arms_conf_lst
+    Returns list of configuration, for each arm
+    """
+    arm_conf_len = 6
+    return [arms_conf[arm_conf_len * i:arm_conf_len * (i + 1)] for i in range(n_arm)]
 
 class MultiarmEnvironment:
     def __init__(self, p_env, ur5_arms, gui=True, visualize=False):

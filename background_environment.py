@@ -2,6 +2,7 @@ import time
 import pybullet as p
 import numpy as np
 from environment import Environment
+from multiarm_planner.multiarm_environment import split_arms_conf
 
 MAX_ATTEMPS_TO_FIND_PATH = 200
 
@@ -45,8 +46,8 @@ class BackgroundEnv(Environment):
 
         @returns a list of paths to appropriate trash, same order as in arms_idx
         if no path found, return None.
-        TODO - Right now the function assumes that we run this with only one arm
         """
+        n_arms = len(arms_idx)
         arms_to_above_position_configs = {}
         arms_to_actual_goal_configs = {}
 
@@ -75,9 +76,13 @@ class BackgroundEnv(Environment):
         if path_to_above_position is None:
             self.trash_generator.remove_trash()
             return None
+
+        # get list of the arms configs when they reach the "above position"
+        above_pos_conf_per_arm = split_arms_conf(path_to_above_position[-1], n_arms)
+
         path_from_above_pos_to_actual_pos = self.arms_manager.birrt(arms_to_actual_goal_configs.keys(),
                                                                     arms_to_actual_goal_configs.values(),
-                                                                    start_configs=[path_to_above_position[-1]],
+                                                                    start_configs=above_pos_conf_per_arm,
                                                                     max_attempts=MAX_ATTEMPS_TO_FIND_PATH)
         if path_from_above_pos_to_actual_pos is None:
             self.trash_generator.remove_trash()
