@@ -4,7 +4,7 @@ from enum import Enum, auto
 
 import numpy as np
 import pybullet as p
-
+from multiarm_planner.multiarm_environment import split_arms_conf_lst
 import trash_configs
 from background_environment import BackgroundEnv
 from multiarm_planner.UR5 import Robotiq2F85
@@ -185,8 +185,44 @@ class TaskManager(object):
         Returns True if the pair is assigned, False otherwise.
         @pre: trash1 y axis < trash2 y axis
         """
-        # TODO SHIR
-        pass
+        n_arms = 2
+        for arm_pair_idx in self.arms_idx_pairs:
+            arms = [self.arms[arm_idx] for arm_idx in arm_pair_idx]
+            # create trash_pair list: list of the 2 trash where arms[i] picks trash_pair[i]
+            # the match between arms and trash is by their order on the y-axis
+            trash_pair = [trash1, trash2]
+            # find what will be the start tick of the task if this arm pair will do the task
+            trash_pair_picking_points = self.calc_trash_pair_picking_point(arms, trash_pair)
+            # start tick is the same for both arms
+            start_tick = self.calculate_ticks_to_destination_on_conveyor(trash_pair[0], trash_pair_picking_points[0])
+            # check if the arms are unoccupied from start_tick (and after)
+            # assume that it's enough to check if the first arm of the pair is free
+            last_assigned_task = None if len(self.arms_to_tasks[arms[0]]) == 0 else self.arms_to_tasks[arms[0]][-1]
+            if last_assigned_task is None or start_tick > last_assigned_task.start_tick + last_assigned_task.len_in_ticks:
+                # this arm  pair can do the new task!
+                # assign this task to the arm pair
+                bin_dst_loc = [self.calc_closest_bin_loc(trash, arm) for trash, arm in zip(trash_pair, arms)]
+
+                arm_start_conf = [arm.get_arm_joint_values() for arm in arms] if last_assigned_task is None \
+                    else [self.arms_to_tasks[arm].path_to_bin[-1] for arm in arms]  # TODO SHIR last assign task doesn't have to be the same task for both arms (in the case where 1 arm do task)
+
+                trash_conf = [trash_pair[i].get_trash_config_at_loc(trash_pair_picking_points[i]) for i in range(n_arms)]
+                motion_plan_res = self.background_env.compute_motion_plan(arm_pair_idx,
+                                                                          trash_conf,
+                                                                          bin_dst_loc, arm_start_conf)
+                if motion_plan_res is None:
+                    # couldn't find a path
+                    continue
+                path_to_trash, path_to_bin = motion_plan_res
+                len_in_ticks = self.get_ticks_for_full_task_heuristic(len(path_to_trash), len(path_to_bin))
+                path_to_trash_per_arm = split_arms_conf_lst(path_to_trash, n_arms)
+                path_to_bin_per_arm = split_arms_conf_lst(path_to_bin, n_arms)
+                # add the task to arms
+                for i in range(n_arms):
+                    task = Task(trash_pair[i], arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i], path_to_bin_per_arm[i])
+                    self.arms_to_tasks[arms[i]].append(task)
+                    # TODO SHIR - add task to arm obj
+                return
 
     @staticmethod
     def calc_single_trash_picking_point(arm, trash):
@@ -216,7 +252,7 @@ class TaskManager(object):
                 # this arm can do the new task!
                 # assign this task to the arm
                 bin_dst_loc = self.calc_closest_bin_loc(trash, arm)
-                arm_start_conf = arm.get_arm_joint_values() if last_assigned_task is None else last_assigned_task.path_to_bin[-1]  # TODO SHIR - verify this is ok
+                arm_start_conf = arm.get_arm_joint_values() if last_assigned_task is None else last_assigned_task.path_to_bin[-1]
                 motion_plan_res = self.background_env.compute_motion_plan([arm_idx],
                                                                                      [trash.get_trash_config_at_loc(trash_picking_point)],
                                                                                      [bin_dst_loc], [arm_start_conf])
@@ -224,9 +260,10 @@ class TaskManager(object):
                     # couldn't find a path
                     continue
                 path_to_trash, path_to_bin = motion_plan_res
-                len_in_ticks = self.get_ticks_for_full_task_heuristic(len(path_to_trash), len(path_to_bin))  # TODO SHIR - check that I got right the conf list structure
+                len_in_ticks = self.get_ticks_for_full_task_heuristic(len(path_to_trash), len(path_to_bin))
                 task = Task(trash, arm, start_tick, len_in_ticks, path_to_trash, path_to_bin)
                 self.arms_to_tasks[arm].append(task)
+                # TODO SHIR - add task to arm obj
                 return
 
     def add_trash(self, trash):
