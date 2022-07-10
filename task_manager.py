@@ -170,9 +170,9 @@ class TaskManager(object):
         (according to the order in @param trash_pair).
         Best picking point: when the average y axis value of the pair trash == average y axis value of the arms
         """
-        arms_y_avg = sum([arm.get_pose[0][1] for arm in arms]) / 2
+        arms_y_avg = sum([arm.get_pose()[0][1] for arm in arms]) / 2
         # dst position is same as current position, except for the y axis (the trash moves only on the y axis)
-        trash_dst = [trash.get_curr_position() for trash in trash_pair]
+        trash_dst = [list(trash.get_curr_position()) for trash in trash_pair]
         trash_curr_y_loc = [trash.get_curr_position()[1] for trash in trash_pair]
         trash_dst[0][1] = arms_y_avg + (trash_curr_y_loc[0] - trash_curr_y_loc[1]) / 2
         trash_dst[1][1] = arms_y_avg + (trash_curr_y_loc[1] - trash_curr_y_loc[0]) / 2
