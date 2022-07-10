@@ -55,6 +55,7 @@ class TaskManager(object):
         self.arms = arms
         # self.available_arms = arms.copy() TODO delete
         self.arms_idx_pairs = arms_idx_pairs
+        self.sort_arms_pairs_by_y_axis()
         self.bins = bins
         self.trash_velocity = trash_velocity
 
@@ -70,6 +71,13 @@ class TaskManager(object):
         arm_pair_dist_y_axis = abs(arm_pair0_y_axis[0] - arm_pair0_y_axis[1])  #
 
         self.max_dist_between_trash_pair_y_axis = 2 * ARM_TO_TRASH_MAX_DIST[1] + arm_pair_dist_y_axis
+
+    def sort_arms_pairs_by_y_axis(self):
+        """
+        Sort each pair in self.arms_idx_pairs by the y-axis order of the arms (the arm with the lower y value first)
+        """
+        for arm_pair_idx in self.arms_idx_pairs:
+            arm_pair_idx.sort(key=lambda idx: self.arms[idx].get_pose()[0][1])
 
     def get_arm_pair(self, arm_idx):
         for pair in self.arms_idx_pairs:
