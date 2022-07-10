@@ -209,9 +209,13 @@ class TaskManager(object):
                 # assign this task to the arm
                 bin_dst_loc = self.calc_closest_bin_loc(trash, arm)
                 arm_start_conf = arm.get_arm_joint_values() if last_assigned_task is None else last_assigned_task.path_to_bin[-1]  # TODO SHIR - verify this is ok
-                path_to_trash, path_to_bin = self.background_env.compute_motion_plan([arm_idx],
+                motion_plan_res = self.background_env.compute_motion_plan([arm_idx],
                                                                                      [trash.get_trash_config_at_loc(trash_picking_point)],
                                                                                      [bin_dst_loc], [arm_start_conf])
+                if motion_plan_res is None:
+                    # couldn't find a path
+                    continue
+                path_to_trash, path_to_bin = motion_plan_res
                 len_in_ticks = self.get_ticks_for_full_task_heuristic(len(path_to_trash), len(path_to_bin))  # TODO SHIR - check that I got right the conf list structure
                 task = Task(trash, arm, start_tick, len_in_ticks, path_to_trash, path_to_bin)
                 self.arms_to_tasks[arm].append(task)

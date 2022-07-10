@@ -115,11 +115,20 @@ class MultiarmEnvironment:
 
         return start_configs, goal_configs, ur5_poses
 
-    def birrt(self, ur5_arms, goal_positions, start_configs=None):
+    def birrt(self, ur5_arms, goal_positions, start_configs=None, max_attempts=1):
+        """"
+        Returns a list of configurations for the arms to get to the goal_positions, or None if it couldn't find a path.
+        @param max_attempts: number of attempts to find a path
+        """
         current_configs, goal_configs, current_poses = self.get_configs_for_rrt(ur5_arms, goal_positions)
         start_configs = current_configs if start_configs is None else start_configs
 
-        return self._birrt(ur5_arms, start_configs, goal_configs, current_poses)
+        path = None
+        attempt_count = 1
+        while path is None and attempt_count <= max_attempts:
+            path = self._birrt(ur5_arms, start_configs, goal_configs, current_poses)
+            attempt_count += 1
+        return path
 
     def mrdrrt(self, ur5_arms, goal_positions, start_configs=None):
         current_configs, goal_configs, current_poses = self.get_configs_for_rrt(ur5_arms, goal_positions)
