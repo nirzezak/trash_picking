@@ -1,3 +1,4 @@
+import json
 import math
 import os
 
@@ -15,15 +16,9 @@ from trash_generator import TrashGenerator
 from trash_types import TrashTypes
 
 URDF_FILES_PATH = "models"
-CONVEYOR_LOCATION = [0, 0, 0.25]
+CONVEYOR_LOCATION = [0, 2, 0.25]
 BINS_LOCATIONS = [[1.5, 0.0, 0.1], [-1.5, 0.0, 0.1]]
-UR5_LOCATIONS = [
-    ([1, 0, 1], p.getQuaternionFromEuler([math.pi, 0, 0])),
-    ([1, 1, 1], p.getQuaternionFromEuler([math.pi, 0, 0])),
-    ([-1, 0, 1], p.getQuaternionFromEuler([math.pi, 0, 0])),
-    ([-1, 1, 1], p.getQuaternionFromEuler([math.pi, 0, 0])),
-]
-ARMS_IDX_PAIRS = [[0, 1], [2, 3]]
+ARMS_IDX_PAIRS = [[0, 1], [2, 3], [4, 5], [6, 7]]
 
 TRASH_SUMMON_INTERVAL = 1000
 FRAME_RATE = 1 / 240.
@@ -45,10 +40,41 @@ class Environment(object):
 
         # Creating the environment
         self.plane = self.p_simulation.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
-        self.bins = [Bin(self.p_simulation, bin_loc, TrashTypes.PLASTIC) for bin_loc in BINS_LOCATIONS]
-        self.arms = [UR5.UR5(self.p_simulation, ur5_loc) for ur5_loc in UR5_LOCATIONS]
+        self.bins = self._load_bins()
+        self.arms = self._load_arms()
         self.arms_idx_pairs = ARMS_IDX_PAIRS
         self.arms_manager = multiarm_environment.MultiarmEnvironment(self.p_simulation, self.arms, gui=False, visualize=False)
         self.conveyor = Conveyor(self.p_simulation, CONVEYOR_LOCATION, speed=conveyor_speed, arms=self.arms)
 
         self.trash_generator = TrashGenerator(self.p_simulation, TRASH_SUMMON_INTERVAL, [1, 2, 0.5], CONVEYOR_LOCATION)
+
+    def _load_bins(self):
+        """
+        Load the bins from the 'trash_bins_locations.json' file.
+        """
+        with open('trash_bins_locations.json', 'r') as f:
+            bins_data = json.load(f)
+
+        bins = []
+        bins_type = {
+            'PLASTIC': TrashTypes.PLASTIC,
+            'PAPER': TrashTypes.PAPER,
+            'ELECTRONIC': TrashTypes.ELECTRONIC,
+        }
+        for b in bins_data:
+            loc = b['loc']
+            trash_type = bins_type[b['type']]
+            bins.append(Bin(self.p_simulation, loc, trash_type))
+
+        return bins
+
+    def _load_arms(self):
+        """
+        Load the arms from the 'arms_locations.json' file.
+        """
+        with open('arms_locations.json', 'r') as f:
+            arms_data = json.load(f)
+
+        orientation = p.getQuaternionFromEuler([math.pi, 0, 0])
+
+        return [UR5.UR5(self.p_simulation, (arm['loc'], orientation)) for arm in arms_data]
