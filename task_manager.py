@@ -22,7 +22,8 @@ class TaskState(Enum):
 
 
 class Task(object):
-    def __init__(self, trash, arm, start_tick, len_in_ticks, path_to_trash, path_to_bin):
+    def __init__(self, trash: Trash, arm: UR5, start_tick: int, len_in_ticks: int, path_to_trash: list,
+                 path_to_bin: list):
         """
         @param trash: The trash object
         @param arm: The arm tasked with sorting the trash.
@@ -66,15 +67,17 @@ class TaskManager(object):
         self.single_trash = []  # unassigned trash, that couldn't be paired yet
         self.waiting_tasks = []  # TODO SHIR- delete this and use arms_to_tasks instead
         self.dispatched_tasks = []  # TODO SHIR- delete this and use arms_to_tasks instead
-        self.arms_to_tasks = {arm: [] for arm in self.arms}  # maps arms to a list of their current tasks, ordered by task.start_tick
+        self.arms_to_tasks = {arm: [] for arm in
+                              self.arms}  # maps arms to a list of their current tasks, ordered by task.start_tick
 
         # calculate distance between arm pair in y axis, assuming this distance is the same for each pair
-        arm_pair0_y_axis = [self.arms[idx].get_pose()[0][1] for idx in arms_idx_pairs[0]]  # list of the y axis value of the arms in pair 0
+        arm_pair0_y_axis = [self.arms[idx].get_pose()[0][1] for idx in
+                            arms_idx_pairs[0]]  # list of the y axis value of the arms in pair 0
         arm_pair_dist_y_axis = abs(arm_pair0_y_axis[0] - arm_pair0_y_axis[1])  #
 
         self.max_dist_between_trash_pair_y_axis = 2 * ARM_TO_TRASH_MAX_DIST[1] + arm_pair_dist_y_axis
 
-    def get_arm_pair(self, arm_idx):
+    def get_arm_pair(self, arm_idx: int) -> list[int]:
         for pair in self.arms_idx_pairs:
             if arm_idx in pair:
                 return pair
@@ -143,7 +146,7 @@ class TaskManager(object):
     #                 return i, j
     #     return None
 
-    def _add_task_to_waiting_list(self, task):
+    def _add_task_to_waiting_list(self, task: Task):
         """
         Add the task to the waiting list, sorted by notify time
         """
@@ -154,7 +157,7 @@ class TaskManager(object):
 
         self.waiting_tasks.append(task)
 
-    def can_be_trash_pair(self, trash1, trash2):
+    def can_be_trash_pair(self, trash1: Trash, trash2: Trash) -> bool:
         """"
         Return True if trash1, trash2 can be a trash pair, False otherwise.
         trash1, trash2 can be a trash pair if:
@@ -166,7 +169,7 @@ class TaskManager(object):
                abs(trash1_y_axis - trash2_y_axis) < self.max_dist_between_trash_pair_y_axis
 
     @staticmethod
-    def calc_trash_pair_picking_point(arms, trash_pair):
+    def calc_trash_pair_picking_point(arms: list[UR5], trash_pair: list[Trash]) -> list[list[int]]:
         """"
         @param arms: list of 2 arms
         @param trash_pair: list of 2 trash to be picked by the arms accordingly (arms[i] picks trash_pair[i])
@@ -183,7 +186,7 @@ class TaskManager(object):
 
         return trash_dst
 
-    def add_trash_pair_task_to_arm_pair(self, trash1, trash2):
+    def add_trash_pair_task_to_arm_pair(self, trash1: Trash, trash2: Trash):
         """"
         Try to assign trash1, trash2 pair to some pair of arms.
         Returns True if the pair is assigned, False otherwise.
@@ -193,7 +196,7 @@ class TaskManager(object):
         pass
 
     @staticmethod
-    def calc_single_trash_picking_point(arm, trash):
+    def calc_single_trash_picking_point(arm: UR5, trash: Trash) -> list[int]:
         """"
         Returns best picking point (from the trash path on the conveyor) for the given arm to pick the trash.
         Best picking point: when y axis value of the trash == y axis value of the arm
@@ -202,7 +205,7 @@ class TaskManager(object):
         trash_picking_point[1] = arm.get_pose()[0][1]
         return trash_picking_point
 
-    def add_single_trash_task_to_arm(self, trash):
+    def add_single_trash_task_to_arm(self, trash: Trash):
         """"
         Try to assign @param trash to some pair of arms.
         Returns True if the trash is assigned, False otherwise.
@@ -220,15 +223,18 @@ class TaskManager(object):
                 # this arm can do the new task!
                 # assign this task to the arm
                 bin_dst_loc = self._find_closest_bin(trash, arm)
-                arm_start_conf = arm.get_arm_joint_values() if last_assigned_task is None else last_assigned_task.path_to_bin[-1]  # TODO SHIR - verify this is ok
+                arm_start_conf = arm.get_arm_joint_values() if last_assigned_task is None else \
+                    last_assigned_task.path_to_bin[-1]  # TODO SHIR - verify this is ok
                 path_to_trash, path_to_bin = self.background_env.compute_motion_plan([arm_idx],
-                                                                                     [trash.get_trash_config_at_loc(trash_picking_point)],
+                                                                                     [trash.get_trash_config_at_loc(
+                                                                                         trash_picking_point)],
                                                                                      [bin_dst_loc], [arm_start_conf])
-                len_in_ticks = self.get_ticks_for_full_task_heuristic(len(path_to_trash), len(path_to_bin))  # TODO SHIR - check that I got right the conf list structure
+                len_in_ticks = self.get_ticks_for_full_task_heuristic(len(path_to_trash),
+                                                                      len(path_to_bin))  # TODO SHIR - check that I got right the conf list structure
                 task = Task(trash, arm, start_tick, len_in_ticks, path_to_trash, path_to_bin)
                 self.arms_to_tasks[arm].append(task)
 
-    def add_trash(self, trash):
+    def add_trash(self, trash: Trash):
         """
         @param trash: The trash to add
         Try to find a trash pair for @param trash,
@@ -340,7 +346,7 @@ class TaskManager(object):
         """
         self.dispatched_tasks = list(filter(lambda x: x.state != TaskState.TASK_DONE, self.dispatched_tasks))
 
-    def remove_uncaught_trash_task(self, trash_id):
+    def remove_uncaught_trash_task(self, trash_id: int):
         """
         Remove failed tasks from the tasks list
         Technically, this doesn't actually remove the task, but just changes the
@@ -352,7 +358,8 @@ class TaskManager(object):
                 task.state = TaskState.TASK_DONE
                 return
 
-    def calculate_ticks_to_destination_on_conveyor(self, trash, trash_dest):
+    @staticmethod
+    def calculate_ticks_to_destination_on_conveyor(trash: Trash, trash_dest: list[int]) -> float:
         """
         Calculate the number of ticks it takes to the trash object to get to the
         destination.
@@ -364,7 +371,7 @@ class TaskManager(object):
         return math.ceil(diff / 0.00104)
         # TODO - 0.00104 is based on the current conveyor speed, change this to be general for every conveyor speed
 
-    def get_ticks_for_full_task_heuristic(self, path_to_trash_len, path_to_bin_len):
+    def get_ticks_for_full_task_heuristic(self, path_to_trash_len: int, path_to_bin_len: int) -> int:
         """"
         Get estimation for number of ticks for a full task (moving to trash, picking, moving to bin, dropping)
         """
@@ -373,9 +380,8 @@ class TaskManager(object):
                2 * Robotiq2F85.TICKS_TO_CHANGE_GRIP + \
                self.get_ticks_for_path_to_bin_heuristic(path_to_bin_len)
 
-
     @staticmethod
-    def get_ticks_for_path_to_trash_heuristic(path_len: int):
+    def get_ticks_for_path_to_trash_heuristic(path_len: int) -> float:
         if path_len < 10:
             print('WARNING: unexpected path to trash length, enhance the get_ticks_for_path_to_trash_heuristic')
             return path_len * 40  # arbitrary, we didn't see such examples
@@ -389,7 +395,7 @@ class TaskManager(object):
         # The pattern we found: 2,x,...,x,1,x,... where x is 47.4 in expectation (#ticks per conf series)
 
     @staticmethod
-    def get_ticks_for_path_to_bin_heuristic(path_len: int):
+    def get_ticks_for_path_to_bin_heuristic(path_len: int) -> int:
         if path_len < 3:
             print('WARNING: unexpected path to trash length, enhance the get_ticks_for_path_to_bin_heuristic')
             return path_len * 40  # arbitrary, we didn't see such examples
