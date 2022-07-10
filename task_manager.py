@@ -215,6 +215,7 @@ class TaskManager(object):
                 len_in_ticks = self.get_ticks_for_full_task_heuristic(len(path_to_trash), len(path_to_bin))  # TODO SHIR - check that I got right the conf list structure
                 task = Task(trash, arm, start_tick, len_in_ticks, path_to_trash, path_to_bin)
                 self.arms_to_tasks[arm].append(task)
+                return
 
     def add_trash(self, trash):
         """
