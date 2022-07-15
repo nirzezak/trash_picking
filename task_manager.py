@@ -4,10 +4,12 @@ from enum import Enum, auto
 
 import numpy as np
 import pybullet as p
+from typing import List, Dict, Tuple
+
 from multiarm_planner.multiarm_environment import split_arms_conf_lst
 import trash_configs
 from background_environment import BackgroundEnv
-from multiarm_planner.UR5 import Robotiq2F85
+from multiarm_planner.UR5 import Robotiq2F85, UR5
 
 ARM_TO_TRASH_MAX_DIST = [0.1, 0.1, 0.1]  # TODO - find real values
 TRASH_INIT_Y_VAL = -1  # TODO - make this dynamic
@@ -49,8 +51,10 @@ class TaskManager(object):
         @param bins: A list of all of the available bins
         @param trash_velocity: The velocity of the trash, we assume velocity
         only on the Y axis.
-
         axis 0 - x, axis 1 - y, axis 2 - z
+
+        Invariants:
+        - Each list of tasks from self.arms_to_tasks is sorted by task.start_tick
         """
         self.arms = arms
         # self.available_arms = arms.copy() TODO delete
@@ -64,13 +68,52 @@ class TaskManager(object):
         self.single_trash = []  # unassigned trash, that couldn't be paired yet
         self.waiting_tasks = []  # TODO SHIR- delete this and use arms_to_tasks instead
         self.dispatched_tasks = []  # TODO SHIR- delete this and use arms_to_tasks instead
-        self.arms_to_tasks = {arm: [] for arm in self.arms}  # maps arms to a list of their current tasks, ordered by task.start_tick
+        self.arms_to_tasks: Dict[UR5, List[Task]] = {arm: [] for arm in self.arms}  # maps arms to a list of their current tasks, ordered by task.start_tick
 
         # calculate distance between arm pair in y axis, assuming this distance is the same for each pair
         arm_pair0_y_axis = [self.arms[idx].get_pose()[0][1] for idx in arms_idx_pairs[0]]  # list of the y axis value of the arms in pair 0
         arm_pair_dist_y_axis = abs(arm_pair0_y_axis[0] - arm_pair0_y_axis[1])  #
 
         self.max_dist_between_trash_pair_y_axis = 2 * ARM_TO_TRASH_MAX_DIST[1] + arm_pair_dist_y_axis
+
+    def add_task_to_tasks_list(self, arm: UR5, task: Task):
+        # TODO - probably delete
+        """
+        Adds task to self.arms_to_tasks[arm] while preserving the invariant about the list order.
+        """
+        tasks_lst = self.arms_to_tasks[arm]
+        for i in range(len(tasks_lst)):
+            if tasks_lst[i].start_tick > task.start_tick:
+                tasks_lst.insert(i, task)
+                return
+        tasks_lst.insert(len(tasks_lst), task)
+
+    def get_index_for_new_task(self, arm: UR5, task_start_tick: float) -> int:
+        """
+        Returns the appropriate index in self.arms_to_tasks[arm] to add a new task with start_tick=task_start_tick,
+        while preserving the invariant about the list order.
+        """
+        tasks_lst = self.arms_to_tasks[arm]
+        for i in range(len(tasks_lst)):
+            if tasks_lst[i].start_tick > task_start_tick:
+                return i
+        return len(tasks_lst)
+
+    def get_task_prev_and_next(self, arm: UR5, task_start_tick: float) -> Tuple[Task, Task]:
+        """
+        Returns 2 tasks from self.arms_to_tasks[arm]:
+        - Prev task - the task with the highest start_tick that is still smaller (or =) than task_start_tick,
+        if there is no such task, returns None
+        - Next task - the task with the lowest start_tick that is still bigger than task_start_tick,
+        if there is no such task, returns None
+        """
+        tasks_lst = self.arms_to_tasks[arm]
+        prev_task = None
+        for i in range(len(tasks_lst)):
+            if tasks_lst[i].start_tick > task_start_tick:
+                return prev_task, tasks_lst[i]
+            prev_task = tasks_lst[i]
+        return prev_task, None
 
     def sort_arms_pairs_by_y_axis(self):
         """
@@ -195,16 +238,17 @@ class TaskManager(object):
             trash_pair_picking_points = self.calc_trash_pair_picking_point(arms, trash_pair)
             # start tick is the same for both arms
             start_tick = self.calculate_ticks_to_destination_on_conveyor(trash_pair[0], trash_pair_picking_points[0])
-            # check if the arms are unoccupied from start_tick (and after)
             # assume that it's enough to check if the first arm of the pair is free
-            last_assigned_task = None if len(self.arms_to_tasks[arms[0]]) == 0 else self.arms_to_tasks[arms[0]][-1]
-            if last_assigned_task is None or start_tick > last_assigned_task.start_tick + last_assigned_task.len_in_ticks:
-                # this arm  pair can do the new task!
-                # assign this task to the arm pair
+            # find the prev_task, next_task of the first arm
+            prev_task, next_task = self.get_task_prev_and_next(arms[0], start_tick)
+            # check if the arm is unoccupied in start_tick
+            if prev_task is None or start_tick > prev_task.start_tick + prev_task.len_in_ticks:
                 bin_dst_loc = [self.calc_closest_bin_loc(trash, arm) for trash, arm in zip(trash_pair, arms)]
 
-                arm_start_conf = [arm.get_arm_joint_values() for arm in arms] if last_assigned_task is None \
-                    else [self.arms_to_tasks[arm].path_to_bin[-1] for arm in arms]  # TODO SHIR last assign task doesn't have to be the same task for both arms (in the case where 1 arm do task)
+                index_for_arm_tasks_lst = [self.get_index_for_new_task(arm, start_tick) for arm in arms]
+                arm_start_conf = [arm.get_arm_joint_values() if idx == 0 else
+                                  self.arms_to_tasks[arm][idx - 1].path_to_bin[-1]
+                                  for arm, idx in zip(arms, index_for_arm_tasks_lst)]  # TODO SHIR - when we add task in the middle of the task list, we are ruining the arm_start_conf of next_task.
 
                 trash_conf = [trash_pair[i].get_trash_config_at_loc(trash_pair_picking_points[i]) for i in range(n_arms)]
                 motion_plan_res = self.background_env.compute_motion_plan(arm_pair_idx,
@@ -215,12 +259,21 @@ class TaskManager(object):
                     continue
                 path_to_trash, path_to_bin = motion_plan_res
                 len_in_ticks = self.get_ticks_for_full_task_heuristic(len(path_to_trash), len(path_to_bin))
+
+                # check if this task will be finished before next_task begins
+                if next_task.start_tick <= start_tick + len_in_ticks:
+                    # this task won't finish in time, can't assigned it to this arm
+                    continue
+
+                # this arm pair can do the new task!
+
                 path_to_trash_per_arm = split_arms_conf_lst(path_to_trash, n_arms)
                 path_to_bin_per_arm = split_arms_conf_lst(path_to_bin, n_arms)
+
                 # add the task to arms
                 for i in range(n_arms):
                     task = Task(trash_pair[i], arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i], path_to_bin_per_arm[i])
-                    self.arms_to_tasks[arms[i]].append(task)
+                    self.arms_to_tasks[arms[i]].insert(index_for_arm_tasks_lst[i], task)
                     # TODO SHIR - add task to arm obj
                 return
 
@@ -241,6 +294,7 @@ class TaskManager(object):
         Always gives the task to the first arm in the pair (the first in the pair's list),
         therefore, to check if a pair is free, it's enough to check the first arm of the pair.
         """
+        # TODO SHIR- update function (prev, next task instead of last task) or generalize pair function to work with any amount of arms
         for arm_idx, _ in self.arms_idx_pairs:
             arm = self.arms[arm_idx]
             # find what will be the start tick of the task if this arm will do the task
