@@ -204,8 +204,30 @@ class TaskManager(object):
         return trash1_y_axis != trash2_y_axis and \
                abs(trash1_y_axis - trash2_y_axis) < self.max_dist_between_trash_pair_y_axis
 
-    @staticmethod
-    def calc_trash_pair_picking_point(arms, trash_pair):
+    def calc_trash_picking_point(self, arms, trash_lst):
+        """
+        Returns best possible picking points (as list) for the given arms to pick *together* the trash from trash_lst
+        (according to the order in @param trash_lst).
+
+        Assumes len(trash_lst) == 1 or 2
+
+        If len(trash_lst) == 1, the first arm in arms is used for calculating the picking point
+        """
+        if len(arms) == 1:
+            return [self.calc_single_trash_picking_point(arms[0], trash_lst[0])]
+        if len(arms) == 2:
+            return self.calc_trash_pair_picking_point(arms, trash_lst)
+
+    def calc_single_trash_picking_point(self, arm, trash):
+        """"
+        Returns best picking point (from the trash path on the conveyor) for the given arm to pick the trash.
+        Best picking point: when y axis value of the trash == y axis value of the arm
+        """
+        trash_picking_point = list(trash.get_curr_position())
+        trash_picking_point[1] = arm.get_pose()[0][1]
+        return [trash_picking_point]
+
+    def calc_trash_pair_picking_point(self, arms, trash_pair):
         """"
         @param arms: list of 2 arms
         @param trash_pair: list of 2 trash to be picked by the arms accordingly (arms[i] picks trash_pair[i])
@@ -222,35 +244,41 @@ class TaskManager(object):
 
         return trash_dst
 
-    def add_trash_pair_task_to_arm_pair(self, trash1, trash2):
+    def add_trash_task_to_arms_group(self, trash_lst):
         """"
-        Try to assign trash1, trash2 pair to some pair of arms.
-        Returns True if the pair is assigned, False otherwise.
-        @pre: trash1 y axis < trash2 y axis
+        @param trash_lst: list of trash objects (len = 1 or 2), sorted by the trash y axis value
+        Try to assign trash to some group of arms (defined in self.arms_idx_pairs).
+        Returns True if the trash is assigned, False otherwise.
+
+        In one trash case, always gives the task to the first arm in the pair (the first in the pair's list),
+        therefore, to check if a pair is free, it's enough to check the first arm of the pair.
         """
-        n_arms = 2
+        n_trash = len(trash_lst)
+        if n_trash > 2:
+            print("ERROR: task manager supports max 2 trash for a task")
+            return False
+
         for arm_pair_idx in self.arms_idx_pairs:
             arms = [self.arms[arm_idx] for arm_idx in arm_pair_idx]
-            # create trash_pair list: list of the 2 trash where arms[i] picks trash_pair[i]
-            # the match between arms and trash is by their order on the y-axis
-            trash_pair = [trash1, trash2]
+            arms = arms[:n_trash]
+            # the match between arms and trash is by their order on the y-axis --> arms[i] picks trash_lst[i]
             # find what will be the start tick of the task if this arm pair will do the task
-            trash_pair_picking_points = self.calc_trash_pair_picking_point(arms, trash_pair)
-            # start tick is the same for both arms
-            start_tick = self.calculate_ticks_to_destination_on_conveyor(trash_pair[0], trash_pair_picking_points[0])
+            trash_group_picking_points = self.calc_trash_picking_point(arms, trash_lst)
+            # start tick is the same for all arms in the group
+            start_tick = self.calculate_ticks_to_destination_on_conveyor(trash_lst[0], trash_group_picking_points[0])
             # assume that it's enough to check if the first arm of the pair is free
             # find the prev_task, next_task of the first arm
             prev_task, next_task = self.get_task_prev_and_next(arms[0], start_tick)
             # check if the arm is unoccupied in start_tick
             if prev_task is None or start_tick > prev_task.start_tick + prev_task.len_in_ticks:
-                bin_dst_loc = [self.calc_closest_bin_loc(trash, arm) for trash, arm in zip(trash_pair, arms)]
+                bin_dst_loc = [self.calc_closest_bin_loc(trash, arm) for trash, arm in zip(trash_lst, arms)]
 
                 index_for_arm_tasks_lst = [self.get_index_for_new_task(arm, start_tick) for arm in arms]
                 arm_start_conf = [arm.get_arm_joint_values() if idx == 0 else
                                   self.arms_to_tasks[arm][idx - 1].path_to_bin[-1]
                                   for arm, idx in zip(arms, index_for_arm_tasks_lst)]  # TODO SHIR - when we add task in the middle of the task list, we are ruining the arm_start_conf of next_task.
 
-                trash_conf = [trash_pair[i].get_trash_config_at_loc(trash_pair_picking_points[i]) for i in range(n_arms)]
+                trash_conf = [trash_lst[i].get_trash_config_at_loc(trash_group_picking_points[i]) for i in range(n_trash)]
                 motion_plan_res = self.background_env.compute_motion_plan(arm_pair_idx,
                                                                           trash_conf,
                                                                           bin_dst_loc, arm_start_conf)
@@ -267,59 +295,16 @@ class TaskManager(object):
 
                 # this arm pair can do the new task!
 
-                path_to_trash_per_arm = split_arms_conf_lst(path_to_trash, n_arms)
-                path_to_bin_per_arm = split_arms_conf_lst(path_to_bin, n_arms)
+                path_to_trash_per_arm = split_arms_conf_lst(path_to_trash, n_trash)
+                path_to_bin_per_arm = split_arms_conf_lst(path_to_bin, n_trash)
 
                 # add the task to arms
-                for i in range(n_arms):
-                    task = Task(trash_pair[i], arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i], path_to_bin_per_arm[i])
+                for i in range(n_trash):
+                    task = Task(trash_lst[i], arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i], path_to_bin_per_arm[i])
                     self.arms_to_tasks[arms[i]].insert(index_for_arm_tasks_lst[i], task)
                     # TODO SHIR - add task to arm obj
                 return True
         return False
-
-    @staticmethod
-    def calc_single_trash_picking_point(arm, trash):
-        """"
-        Returns best picking point (from the trash path on the conveyor) for the given arm to pick the trash.
-        Best picking point: when y axis value of the trash == y axis value of the arm
-        """
-        trash_picking_point = list(trash.get_curr_position())
-        trash_picking_point[1] = arm.get_pose()[0][1]
-        return trash_picking_point
-
-    def add_single_trash_task_to_arm(self, trash):
-        """"
-        Try to assign @param trash to some pair of arms.
-        Returns True if the trash is assigned, False otherwise.
-        Always gives the task to the first arm in the pair (the first in the pair's list),
-        therefore, to check if a pair is free, it's enough to check the first arm of the pair.
-        """
-        # TODO SHIR- update function (prev, next task instead of last task) or generalize pair function to work with any amount of arms
-        for arm_idx, _ in self.arms_idx_pairs:
-            arm = self.arms[arm_idx]
-            # find what will be the start tick of the task if this arm will do the task
-            trash_picking_point = self.calc_single_trash_picking_point(arm, trash)
-            start_tick = self.calculate_ticks_to_destination_on_conveyor(trash, trash_picking_point)
-            # check if the arm is unoccupied from start_tick (and after)
-            last_assigned_task = None if len(self.arms_to_tasks[arm]) == 0 else self.arms_to_tasks[arm][-1]
-            if last_assigned_task is None or start_tick > last_assigned_task.start_tick + last_assigned_task.len_in_ticks:
-                # this arm can do the new task!
-                # assign this task to the arm
-                bin_dst_loc = self.calc_closest_bin_loc(trash, arm)
-                arm_start_conf = arm.get_arm_joint_values() if last_assigned_task is None else last_assigned_task.path_to_bin[-1]
-                motion_plan_res = self.background_env.compute_motion_plan([arm_idx],
-                                                                                     [trash.get_trash_config_at_loc(trash_picking_point)],
-                                                                                     [bin_dst_loc], [arm_start_conf])
-                if motion_plan_res is None:
-                    # couldn't find a path
-                    continue
-                path_to_trash, path_to_bin = motion_plan_res
-                len_in_ticks = self.get_ticks_for_full_task_heuristic(len(path_to_trash), len(path_to_bin))
-                task = Task(trash, arm, start_tick, len_in_ticks, path_to_trash, path_to_bin)
-                self.arms_to_tasks[arm].append(task)
-                # TODO SHIR - add task to arm obj
-                return
 
     def add_trash(self, trash):
         """
@@ -331,7 +316,7 @@ class TaskManager(object):
         for older_trash in self.single_trash:
             if self.can_be_trash_pair(trash, older_trash):
                 # try to find pair of arms for this trash pair
-                if self.add_trash_pair_task_to_arm_pair(trash, older_trash):
+                if self.add_trash_task_to_arms_group([trash, older_trash]):
                     # this pair trash is assigned to some pair of arms
                     return
         # failed to assign this trash, add trash to self.single_trash
@@ -349,7 +334,7 @@ class TaskManager(object):
             if trash.get_curr_position()[1] - TRASH_INIT_Y_VAL >= self.max_dist_between_trash_pair_y_axis:
                 self.single_trash.remove(trash)
                 # try to assign a single trash task
-                self.add_single_trash_task_to_arm(trash)
+                self.add_trash_task_to_arms_group([trash])
 
     # TODO - delete?
     # def try_dispatch_tasks(self):
