@@ -275,7 +275,8 @@ class TaskManager(object):
                     task = Task(trash_pair[i], arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i], path_to_bin_per_arm[i])
                     self.arms_to_tasks[arms[i]].insert(index_for_arm_tasks_lst[i], task)
                     # TODO SHIR - add task to arm obj
-                return
+                return True
+        return False
 
     @staticmethod
     def calc_single_trash_picking_point(arm, trash):
