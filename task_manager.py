@@ -422,17 +422,33 @@ class TaskManager(object):
         """
         self.dispatched_tasks = list(filter(lambda x: x.state != TaskState.TASK_DONE, self.dispatched_tasks))
 
-    def remove_uncaught_trash_task(self, trash_id):
+    def remove_trash(self, trash_id):
         """
-        Remove failed tasks from the tasks list
-        Technically, this doesn't actually remove the task, but just changes the
-        state of the task to TASK_DONE (and `remove_completed_tasks` would
-        actually remove it)
+        Removes trash:
+        - Removes from self.single_trash list (if exists)
+        - Removes the Task for this trash (if exists)
         """
-        for task in self.dispatched_tasks:
-            if task.trash.id == trash_id:
-                task.state = TaskState.TASK_DONE
-                return
+        # Removes from self.single_trash
+        for idx in range(len(self.single_trash)):
+            if self.single_trash[idx].id == trash_id:
+                self.single_trash.pop(idx)
+                return  # if this trash was in self.single_trash, there is no Task for it
+        # Removes the Task for this trash
+        for tasks in self.arms_to_tasks.values():
+            for task in tasks:
+                if task.trash.id == trash_id:
+                    # the trash has a task, we want to remove the task
+                    # case 1: it's a 1-trash task (involves only one arm)
+                    if len(task.arms_involved) == 1:
+                        tasks.remove(task)  # simply remove trash
+                    # case 2: it's a 2-trash task
+                    else:
+                        pass
+                        # TODO ENHANCE - we currently leave this task but the trash is not there so the arm moves for nothing.
+                        # we can convert this task to be a null task- it will still be there so the manager won't assign
+                        # other tasks in this tick period but when executed, the arm won't move
+                        # (can be set immediately as TASK_DONE at that time)
+                    return
 
     def calculate_ticks_to_destination_on_conveyor(self, trash, trash_dest):
         """
