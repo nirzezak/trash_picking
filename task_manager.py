@@ -21,7 +21,7 @@ class TaskState(Enum):
 
 
 class Task(object):
-    def __init__(self, trash, arm, start_tick, len_in_ticks, path_to_trash, path_to_bin):
+    def __init__(self, trash, arm, start_tick, len_in_ticks, path_to_trash, path_to_bin, arms_involved):
         """
         @param trash: The trash object
         @param arm: The arm tasked with sorting the trash.
@@ -29,6 +29,8 @@ class Task(object):
         @param len_in_ticks: The amount of ticks it would take to do the task
         @param path_to_trash: list of the arm's configurations for moving to trash from the position before the task
         @param path_to_bin: list of the arm's configurations for moving from trash to bin
+        @param arms_involved: the arms operating in parallel in this motion plan
+        (all the arms that were part of the motion plan)
         """
         self.trash = trash
         self.arm = arm
@@ -37,6 +39,7 @@ class Task(object):
         self.path_to_trash = path_to_trash
         self.path_to_bin = path_to_bin
         self.state = TaskState.TASK_WAIT
+        self.arms_involved = arms_involved
 
 
 # TODO SHIR - use tick as time instead of real time
@@ -300,7 +303,8 @@ class TaskManager(object):
 
                 # add the task to arms
                 for i in range(n_trash):
-                    task = Task(trash_lst[i], arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i], path_to_bin_per_arm[i])
+                    task = Task(trash_lst[i], arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i],
+                                path_to_bin_per_arm[i], arms)
                     self.arms_to_tasks[arms[i]].insert(index_for_arm_tasks_lst[i], task)
                     # TODO SHIR - add task to arm obj
                 return True
