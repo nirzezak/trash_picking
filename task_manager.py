@@ -289,7 +289,7 @@ class TaskManager(object):
                 len_in_ticks = self.get_ticks_for_full_task_heuristic(len(path_to_trash), len(path_to_bin))
 
                 # check if this task will be finished before next_task begins
-                if next_task.start_tick <= start_tick + len_in_ticks:
+                if next_task is not None and next_task.start_tick <= start_tick + len_in_ticks:
                     # this task won't finish in time, can't assigned it to this arm
                     continue
 
