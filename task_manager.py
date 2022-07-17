@@ -228,7 +228,7 @@ class TaskManager(object):
         """
         trash_picking_point = list(trash.get_curr_position())
         trash_picking_point[1] = arm.get_pose()[0][1]
-        return [trash_picking_point]
+        return trash_picking_point
 
     def calc_trash_pair_picking_point(self, arms, trash_pair):
         """"
