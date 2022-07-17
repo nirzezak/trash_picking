@@ -75,6 +75,6 @@ class Environment(object):
         with open('arms_locations.json', 'r') as f:
             arms_data = json.load(f)
 
-        orientation = p.getQuaternionFromEuler([math.pi, 0, 0])
+        orientation = p.getQuaternionFromEuler([0, 0, 0])
 
         return [UR5.UR5(self.p_simulation, (arm['loc'], orientation)) for arm in arms_data]
