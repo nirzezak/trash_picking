@@ -26,13 +26,11 @@ class BackgroundEnv(Environment):
         paths to bins - a list of paths to appropriate bins, same order as in arms_idx
 
         if no path found, return None
-
-        TODO - Right now the function assumes that we run this with only one arm
         """
         paths_to_trash = self.compute_path_to_trash(arms_idx, trash, start_configs)
         if paths_to_trash is None:
             return None
-        last_configs = [paths_to_trash[-1]]  # TODO - change this when we will work with multi arms
+        last_configs = split_arms_conf(paths_to_trash[-1], len(trash))
         paths_to_bins = self.compute_path_to_bin(arms_idx, bin_locations, last_configs)
         if paths_to_bins is None:
             return None
