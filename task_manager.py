@@ -15,9 +15,9 @@ ARM_TO_TRASH_MAX_DIST = [0.1, 0.1, 0.1]  # TODO - find real values
 TRASH_INIT_Y_VAL = -1  # TODO - make this dynamic
 
 class TaskState(Enum):
-    TASK_WAIT = auto()  # task waits to be executed
-    TASK_DISPATCHED = auto()  # task is executed now
-    TASK_DONE = auto()  # task finished
+    WAIT = auto()  # task waits to be executed
+    DISPATCHED = auto()  # task is executed now
+    DONE = auto()  # task finished
 
 
 class Task(object):
@@ -38,7 +38,7 @@ class Task(object):
         self.len_in_ticks = len_in_ticks
         self.path_to_trash = path_to_trash
         self.path_to_bin = path_to_bin
-        self.state = TaskState.TASK_WAIT
+        self.state = TaskState.WAIT
         self.arms_involved = arms_involved
 
 
@@ -403,9 +403,9 @@ class TaskManager(object):
             awakened_tasks = self.waiting_tasks
             self.waiting_tasks = []
 
-        # Change state of tasks here to TASK_DISPATCHED
+        # Change state of tasks here to DISPATCHED
         for task in awakened_tasks:
-            task.state = TaskState.TASK_DISPATCHED
+            task.state = TaskState.DISPATCHED
             # for arm in task.arms:
             #     arm.start_task()
 
@@ -420,7 +420,7 @@ class TaskManager(object):
         """
         Remove tasks that were completed
         """
-        self.dispatched_tasks = list(filter(lambda x: x.state != TaskState.TASK_DONE, self.dispatched_tasks))
+        self.dispatched_tasks = list(filter(lambda x: x.state != TaskState.DONE, self.dispatched_tasks))
 
     def remove_trash(self, trash_id):
         """
@@ -447,7 +447,7 @@ class TaskManager(object):
                         # TODO ENHANCE - we currently leave this task but the trash is not there so the arm moves for nothing.
                         # we can convert this task to be a null task- it will still be there so the manager won't assign
                         # other tasks in this tick period but when executed, the arm won't move
-                        # (can be set immediately as TASK_DONE at that time)
+                        # (can be set immediately as DONE at that time)
                     return
 
     def calculate_ticks_to_destination_on_conveyor(self, trash, trash_dest):
