@@ -282,7 +282,7 @@ class TaskManager(object):
                                   for arm, idx in zip(arms, index_for_arm_tasks_lst)]  # TODO SHIR - when we add task in the middle of the task list, we are ruining the arm_start_conf of next_task.
 
                 trash_conf = [trash_lst[i].get_trash_config_at_loc(trash_group_picking_points[i]) for i in range(n_trash)]
-                motion_plan_res = self.background_env.compute_motion_plan(arm_pair_idx,
+                motion_plan_res = self.background_env.compute_motion_plan(arm_pair_idx[:n_trash],
                                                                           trash_conf,
                                                                           bin_dst_loc, arm_start_conf)
                 if motion_plan_res is None:
