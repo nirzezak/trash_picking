@@ -29,7 +29,7 @@ class RealEnv(Environment):
         # Summon trash every couple of seconds
         if self.current_tick == self.summon_tick:
             config = random.choice(list(TrashConfig))
-            trash = self.trash_generator.summon_trash(config)
+            trash = self.trash_generator.summon_trash(config.value)
             self.task_manager.add_trash(trash)
             self.current_tick = 0
         self.p_simulation.stepSimulation()
