@@ -84,7 +84,7 @@ class TaskManager(object):
             if arm_idx in pair:
                 return pair
 
-    def get_index_for_new_task(self, arm: UR5, task_start_tick: float) -> int:
+    def get_index_for_new_task(self, arm: UR5, task_start_tick: int) -> int:
         """
         Returns the appropriate index in self.arms_to_tasks[arm] to add a new task with start_tick=task_start_tick,
         while preserving the invariant about the list order.
@@ -95,7 +95,7 @@ class TaskManager(object):
                 return i
         return len(tasks_lst)
 
-    def get_task_prev_and_next(self, arm: UR5, task_start_tick: float) -> Tuple[Task, Task]:
+    def get_task_prev_and_next(self, arm: UR5, task_start_tick: int) -> Tuple[Task, Task]:
         """
         Returns 2 tasks from self.arms_to_tasks[arm]:
         - Prev task - the task with the highest start_tick that is still smaller (or =) than task_start_tick,
@@ -364,7 +364,7 @@ class TaskManager(object):
                     return
 
     @staticmethod
-    def calculate_ticks_to_destination_on_conveyor(trash: Trash, trash_dest: list[int]) -> float:
+    def calculate_ticks_to_destination_on_conveyor(trash: Trash, trash_dest: list[int]) -> int:
         """
         Calculate the number of ticks it takes to the trash object to get to the
         destination.
@@ -386,11 +386,11 @@ class TaskManager(object):
                self.get_ticks_for_path_to_bin_heuristic(path_to_bin_len)
 
     @staticmethod
-    def get_ticks_for_path_to_trash_heuristic(path_len: int) -> float:
+    def get_ticks_for_path_to_trash_heuristic(path_len: int) -> int:
         if path_len < 10:
             print('WARNING: unexpected path to trash length, enhance the get_ticks_for_path_to_trash_heuristic')
             return path_len * 40  # arbitrary, we didn't see such examples
-        return 1 + 2 + 47.4 * (path_len - 2)
+        return math.ceil(1 + 2 + 47.4 * (path_len - 2))
         # Explanation:
         # The path is built from ur5 configuration list,
         # each configuration change takes some number of ticks (not fixed).
