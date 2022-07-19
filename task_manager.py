@@ -45,7 +45,6 @@ class Task(object):
         self.arms_involved = arms_involved
 
 
-# TODO SHIR - use tick as time instead of real time
 class TaskManager(object):
     def __init__(self, arms: List[UR5], arms_idx_pairs: List[List[int]], bins: List[Bin], trash_velocity: float):
         """
