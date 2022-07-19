@@ -215,9 +215,10 @@ class TaskManager(object):
 
         return trash_dst
 
-    def add_trash_task_to_arms_group(self, trash_lst):
+    def add_trash_task_to_arms_group(self, trash_lst: List[Trash], curr_tick: int):
         """"
         @param trash_lst: list of trash objects (len = 1 or 2), sorted by the trash y axis value
+        @param curr_tick: the current tick count
         Try to assign trash to some group of arms (defined in self.arms_idx_pairs).
         Returns True if the trash is assigned, False otherwise.
 
@@ -236,7 +237,8 @@ class TaskManager(object):
             # find what will be the start tick of the task if this arm pair will do the task
             trash_group_picking_points = self.calc_trash_picking_point(arms, trash_lst)
             # start tick is the same for all arms in the group
-            start_tick = self.calculate_ticks_to_destination_on_conveyor(trash_lst[0], trash_group_picking_points[0])
+            start_tick = curr_tick + \
+                         self.calculate_ticks_to_destination_on_conveyor(trash_lst[0], trash_group_picking_points[0])
             # assume that it's enough to check if the first arm of the pair is free
             # find the prev_task, next_task of the first arm
             prev_task, next_task = self.get_task_prev_and_next(arms[0], start_tick)
@@ -278,9 +280,10 @@ class TaskManager(object):
                 return True
         return False
 
-    def add_trash(self, trash: Trash):
+    def add_trash(self, trash: Trash, curr_tick: int):
         """
         @param trash: The trash to add
+        @param curr_tick: the current tick count
         Try to find a trash pair for @param trash,
         if a pair is found, give this 2 trash task to a pair of arms (if possible)
         otherwise, add @param trash to self.single_trash list
@@ -288,14 +291,15 @@ class TaskManager(object):
         for older_trash in self.single_trash:
             if self.can_be_trash_pair(trash, older_trash):
                 # try to find pair of arms for this trash pair
-                if self.add_trash_task_to_arms_group([trash, older_trash]):
+                if self.add_trash_task_to_arms_group([trash, older_trash], curr_tick):
                     # this pair trash is assigned to some pair of arms
                     return
         # failed to assign this trash, add trash to self.single_trash
         self.single_trash.append(trash)
 
-    def handle_single_trash_that_passed_pnr(self):
+    def handle_single_trash_that_passed_pnr(self, curr_tick):
         """"
+        @param curr_tick: the current tick count
         - Remove all trash from self.single_trash that passed the PNR (point of no return- a point in which this trash
         cannot be paired in the future, and will stay forever alone),
         - Try to assign each of those lonely trash to some arm. If it can't be assigned, give up on this trash,
@@ -306,7 +310,7 @@ class TaskManager(object):
             if trash.get_curr_position()[1] - TRASH_INIT_Y_VAL >= self.max_dist_between_trash_pair_y_axis:
                 self.single_trash.remove(trash)
                 # try to assign a single trash task
-                self.add_trash_task_to_arms_group([trash])
+                self.add_trash_task_to_arms_group([trash], curr_tick)
 
     def notify_arms_and_remove_completed_tasks(self, curr_tick: int) -> None:
         """
