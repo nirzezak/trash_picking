@@ -17,7 +17,7 @@ class RealEnv(Environment):
         super().__init__(connection_mode, conveyor_speed=0.025)
 
         # Manage the real environment: clocks, and scoreboard
-        self.task_manager = TaskManager(self.arms, self.arms_idx_pairs, self.bins, self.conveyor.speed)
+        self.task_manager = TaskManager(self.arms, self.bins, self.conveyor.speed)
         self.current_tick = 0
         self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL)
         self.score = Score()
@@ -26,14 +26,15 @@ class RealEnv(Environment):
         # TODO: Could be converted to an event loop
 
         # Summon trash every couple of seconds
-        if self.current_tick % self.summon_tick == 0:
-            trash = self.trash_generator.summon_trash(TrashConfig.MUSTARD.value)
+        if self.current_tick == self.summon_tick:
+            trash = self.trash_generator.summon_trash(TrashConfig.MUSTARD)
             self.task_manager.add_trash(trash)
+            self.current_tick = 0
         self.p_simulation.stepSimulation()
 
         # Call managing methods
-        self.task_manager.handle_single_trash_that_passed_pnr()
-        self.task_manager.notify_arms(self.current_tick)
+        self.task_manager.try_dispatch_tasks()
+        self.task_manager.notify_arms()
         self.task_manager.remove_completed_tasks()
 
         # Simulate the environment

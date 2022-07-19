@@ -23,7 +23,6 @@ UR5_LOCATIONS = [
     ([-1, 0, 1], p.getQuaternionFromEuler([math.pi, 0, 0])),
     ([-1, 1, 1], p.getQuaternionFromEuler([math.pi, 0, 0])),
 ]
-ARMS_IDX_PAIRS = [[0, 1], [2, 3]]
 
 TRASH_SUMMON_INTERVAL = 1000
 FRAME_RATE = 1 / 240.
@@ -47,7 +46,6 @@ class Environment(object):
         self.plane = self.p_simulation.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
         self.bins = [Bin(self.p_simulation, bin_loc, TrashTypes.PLASTIC) for bin_loc in BINS_LOCATIONS]
         self.arms = [UR5.UR5(self.p_simulation, ur5_loc) for ur5_loc in UR5_LOCATIONS]
-        self.arms_idx_pairs = ARMS_IDX_PAIRS
         self.arms_manager = multiarm_environment.MultiarmEnvironment(self.p_simulation, self.arms, gui=False, visualize=False)
         self.conveyor = Conveyor(self.p_simulation, CONVEYOR_LOCATION, speed=conveyor_speed, arms=self.arms)
 
