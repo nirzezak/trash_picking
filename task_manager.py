@@ -151,7 +151,7 @@ class TaskManager(object):
         Add the task to the waiting list, sorted by notify time
         """
         for i in range(len(self.waiting_tasks)):
-            if task.notify_time < self.waiting_tasks[i].notify_time:
+            if task.start_tick < self.waiting_tasks[i].start_tick:
                 self.waiting_tasks.insert(i, task)
                 return
 
@@ -308,16 +308,15 @@ class TaskManager(object):
     # Remove assigned trash
     # self.single_trash = list(filter(lambda x: x is not None, self.single_trash))
 
-    def notify_arms(self):
+    def notify_arms(self, curr_tick):
         """
         Notify arms about tasks that they should perform
         """
-        curr_time = time.time()
         i = 0
         awakened_tasks = []
         for i in range(len(self.waiting_tasks)):
             # Search for the tasks that should still be waiting
-            if self.waiting_tasks[0].notify_time > curr_time:
+            if self.waiting_tasks[0].notify_time > curr_tick:
                 awakened_tasks = self.waiting_tasks[:i]
                 self.waiting_tasks = self.waiting_tasks[i:]
                 break
