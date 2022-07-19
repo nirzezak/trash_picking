@@ -14,7 +14,7 @@ class BackgroundEnv(Environment):
     def compute_motion_plan(self, arms_idx, trash, bin_locations, start_configs):
         """"
         @param arms_idx: arm indices to find paths for
-        @param trash: a tuple: (TrashConfig, trash location), same order as in arms_idx
+        @param trash: list of trash configs, same order as in arms_idx
         @param bin_locations: list of bin locations, same order as in arms_idx
         @param start_configs: list of start configs of the arms, same order as in arms_idx
 
@@ -33,7 +33,7 @@ class BackgroundEnv(Environment):
     def compute_path_to_trash(self, arms_idx, trash, start_configs):
         """"
         @param arms_idx: arm indices to find paths for
-        @param trash: a tuple: (TrashConfig, trash location), same order as in arms_idx
+        @param trash: list of trash configs, same order as in arms_idx
         @param start_configs: list of start configs of the arms, same order as in arms_idx
 
         @returns a list of paths to appropriate trash, same order as in arms_idx
@@ -42,9 +42,9 @@ class BackgroundEnv(Environment):
         arms_to_above_position_configs = {}
         arms_to_actual_goal_configs = {}
 
-        for arm_idx, trash_info in zip(arms_idx, trash):
+        for arm_idx, trash_conf in zip(arms_idx, trash):
             # TODO: Fix this entire block of code because it is super specific
-            trash = self.trash_generator.summon_trash(trash_config=trash_info[0], forced_location=trash_info[1])
+            trash = self.trash_generator.summon_trash(trash_conf)
             trash_pos, orientation = self.p_simulation.getBasePositionAndOrientation(trash.get_id())
             trash_pos = list(trash_pos)
 
