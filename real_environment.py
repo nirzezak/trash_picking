@@ -1,4 +1,5 @@
 import math
+import random
 
 import pybullet as p
 
@@ -27,7 +28,8 @@ class RealEnv(Environment):
 
         # Summon trash every couple of seconds
         if self.current_tick % self.summon_tick == 0:
-            trash = self.trash_generator.summon_trash(TrashConfig.MUSTARD.value)
+            config = random.choice(list(TrashConfig))
+            trash = self.trash_generator.summon_trash(config.value)
             self.task_manager.add_trash(trash)
         self.p_simulation.stepSimulation()
 
@@ -42,13 +44,13 @@ class RealEnv(Environment):
 
         self.p_simulation.stepSimulation()
         self.conveyor.convey()
-        self.remove_uncaught_trash()
+        self.remove_lost_cause_trash()
         self.current_tick += 1
 
-    def remove_uncaught_trash(self):
+    def remove_lost_cause_trash(self):
         contact_points = self.p_simulation.getContactPoints(bodyA=self.plane)
         body_uids = set([point[2] for point in contact_points])
         for body_uid in body_uids:
             if body_uid not in [self.conveyor, *self.bins]:
                 self.trash_generator.remove_trash(body_uid)
-                self.task_manager.remove_uncaught_trash_task(body_uid)
+                self.task_manager.remove_trash(body_uid)

@@ -21,3 +21,21 @@ class Bin(object):
         self.location = location
         self.trash_type = trash_type
         self.p_simulation = p_simulation
+
+        self._change_color()
+
+    def _change_color(self):
+        """
+        Change the color of the trash bin, according to its type.
+        """
+        if self.trash_type == TrashTypes.PLASTIC:
+            rgba = [1.0, 0.6, 0.0, 1.0]
+        elif self.trash_type == TrashTypes.PAPER:
+            rgba = [0.0, 0.0, 1.0, 1.0]
+        elif self.trash_type == TrashTypes.ELECTRONIC:
+            rgba = [1.0, 1.0, 1.0, 1.0]
+        else:
+            raise ValueError("Couldn't find color for trash type")
+
+        self.p_simulation.changeVisualShape(self.id, -1, rgbaColor=rgba)
+

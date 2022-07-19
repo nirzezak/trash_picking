@@ -567,7 +567,7 @@ class UR5:
                     for k, v in self.ticks_stat.items():
                         print(f'{k}: {v}')
                 self.state = ArmState.IDLE
-                # self.tasks[0].state = trash_generator.TaskState.TASK_DONE
+                # self.tasks[0].state = trash_generator.TaskState.DONE
                 self.stop_gripper()
                 self.tasks.pop(0)
 

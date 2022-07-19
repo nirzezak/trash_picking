@@ -33,8 +33,8 @@ class Conveyor(object):
         for body_uid, link_index, _ in links:
             if body_uid in self.arms_ids:
                 continue
-            linear_velocity, angular_velocity = self.p_simulation.getBaseVelocity(body_uid)
+            linear_velocity, _ = self.p_simulation.getBaseVelocity(body_uid)
             _, _, vz = linear_velocity
             linear_velocity = (0, self.speed, vz)
-            self.p_simulation.resetBaseVelocity(body_uid, linear_velocity, angular_velocity)
+            self.p_simulation.resetBaseVelocity(body_uid, linear_velocity, (0, 0, 0))
             self.p_simulation.changeDynamics(body_uid, link_index, lateralFriction=0, anisotropicFriction=0)
