@@ -27,16 +27,15 @@ class RealEnv(Environment):
         # TODO: Could be converted to an event loop
 
         # Summon trash every couple of seconds
-        if self.current_tick == self.summon_tick:
+        if self.current_tick % self.summon_tick == 0:
             config = random.choice(list(TrashConfig))
             trash = self.trash_generator.summon_trash(config.value)
             self.task_manager.add_trash(trash)
-            self.current_tick = 0
         self.p_simulation.stepSimulation()
 
         # Call managing methods
         self.task_manager.handle_single_trash_that_passed_pnr()
-        self.task_manager.notify_arms()
+        self.task_manager.notify_arms(self.current_tick)
         self.task_manager.remove_completed_tasks()
 
         # Simulate the environment

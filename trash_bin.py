@@ -7,7 +7,7 @@ class Bin(object):
     """
     Class to describe the trash bins
     """
-    def __init__(self, p_simulation, location, trash_type, urdf_path=None):
+    def __init__(self, p_simulation, location: list[int], trash_type: TrashTypes, urdf_path=None):
         """
         @param p_simulation: pybullet simulation physics client
         @param location: Location to spawn the bin

@@ -1,6 +1,6 @@
 import math
-import time
 from enum import Enum, auto
+import numpy as np
 
 import pybullet as p
 from typing import List, Dict, Tuple
@@ -8,9 +8,12 @@ from typing import List, Dict, Tuple
 from multiarm_planner.multiarm_environment import split_arms_conf_lst
 from background_environment import BackgroundEnv
 from multiarm_planner.UR5 import Robotiq2F85, UR5
+from trash import Trash
+from trash_bin import Bin
 
 ARM_TO_TRASH_MAX_DIST = [0.1, 0.1, 0.1]  # TODO - find real values
 TRASH_INIT_Y_VAL = -1  # TODO - make this dynamic
+ARMS_SAFETY_OFFSET = 0.1
 
 
 class TaskState(Enum):
@@ -20,7 +23,8 @@ class TaskState(Enum):
 
 
 class Task(object):
-    def __init__(self, trash, arm, start_tick, len_in_ticks, path_to_trash, path_to_bin, arms_involved):
+    def __init__(self, trash: Trash, arm: UR5, start_tick: int, len_in_ticks: int, path_to_trash: list,
+                 path_to_bin: list, arms_involved: list[UR5]):
         """
         @param trash: The trash object
         @param arm: The arm tasked with sorting the trash.
@@ -43,7 +47,7 @@ class Task(object):
 
 # TODO SHIR - use tick as time instead of real time
 class TaskManager(object):
-    def __init__(self, arms, arms_idx_pairs, bins, trash_velocity):
+    def __init__(self, arms: list[UR5], arms_idx_pairs: list[list[int]], bins: list[Bin], trash_velocity: float):
         """
         @param arms: A list of all of the available arms
         @param arms_idx_pairs: a list of arm pairs, each pair is represented as a list (length=2),
@@ -74,6 +78,11 @@ class TaskManager(object):
         arm_pair_dist_y_axis = abs(arm_pair0_y_axis[0] - arm_pair0_y_axis[1])
 
         self.max_dist_between_trash_pair_y_axis = 2 * ARM_TO_TRASH_MAX_DIST[1] + arm_pair_dist_y_axis
+
+    def get_arm_pair(self, arm_idx: int) -> list[int]:
+        for pair in self.arms_idx_pairs:
+            if arm_idx in pair:
+                return pair
 
     def get_index_for_new_task(self, arm: UR5, task_start_tick: float) -> int:
         """
@@ -109,18 +118,51 @@ class TaskManager(object):
         for arm_pair_idx in self.arms_idx_pairs:
             arm_pair_idx.sort(key=lambda idx: self.arms[idx].get_pose()[0][1])
 
-    def get_arm_pair(self, arm_idx):
-        for pair in self.arms_idx_pairs:
-            if arm_idx in pair:
-                return pair
 
-    def calc_closest_bin_loc(self, trash, arm):
+    def _find_closest_bin(self, trash: Trash, arm: UR5) -> list[int]:
         """
-        Returns a location for the arm to drop the trash, this location will be above a bin that should contain
-        this kind of trash.
+        Finds the closest bin to the arm, that handles this type of trash.
+
+        @param trash: The trash object we want to recycle.
+        @param arm: The arm that we will use.
+
+        @returns The location of the closest bin, with some offset to avoid
+        collisions when both arms need to work on that trash bin.
         """
-        # TODO OMER
-        return [0, 0, 1]
+        # TODO: This function is probably useless, we can hardcode it, but I was
+        #   too lazy to do it now...
+        arm_loc = arm.pose[0]
+        arm_loc = np.array(arm_loc)
+
+        # Find the closest bin
+        closest_bin_distance = math.inf
+        closest_bin = None
+        for trash_bin in self.bins:
+            if trash_bin.trash_type == trash.trash_type:
+                # Calculate distance
+                trash_bin_loc = np.array(trash_bin.location)
+                distance = np.linalg.norm(arm_loc - trash_bin_loc)
+                if distance < closest_bin_distance:
+                    closest_bin_distance = distance
+                    closest_bin = trash_bin
+
+        # Return the location of that bin, with some small marginal offset to
+        # avoid collisions
+        trash_bin_loc = closest_bin.location.copy()
+        if arm_loc[1] > trash_bin_loc[1]:
+            # The arm is ahead than the bin, therefore the arm needs to go a
+            # little bit further ahead
+            trash_bin_loc[1] += ARMS_SAFETY_OFFSET
+        elif arm_loc[1] < trash_bin_loc[1]:
+            # The bin is ahead than the arm, therefore the arm needs to go a
+            # little bit further back
+            trash_bin_loc[1] -= ARMS_SAFETY_OFFSET
+        else:
+            # The arm and the bin are at the same Y offset, so no need for
+            # any safety offset (in this case, only 1 arm uses this bin)
+            pass
+
+        return trash_bin_loc
 
     def can_be_trash_pair(self, trash1, trash2):
         """"
@@ -200,7 +242,7 @@ class TaskManager(object):
             prev_task, next_task = self.get_task_prev_and_next(arms[0], start_tick)
             # check if the arm is unoccupied in start_tick
             if prev_task is None or start_tick > prev_task.start_tick + prev_task.len_in_ticks:
-                bin_dst_loc = [self.calc_closest_bin_loc(trash, arm) for trash, arm in zip(trash_lst, arms)]
+                bin_dst_loc = [self._find_closest_bin(trash, arm) for trash, arm in zip(trash_lst, arms)]
 
                 index_for_arm_tasks_lst = [self.get_index_for_new_task(arm, start_tick) for arm in arms]
                 arm_start_conf = [arm.get_arm_joint_values() if idx == 0 else
@@ -236,7 +278,7 @@ class TaskManager(object):
                 return True
         return False
 
-    def add_trash(self, trash):
+    def add_trash(self, trash: Trash):
         """
         @param trash: The trash to add
         Try to find a trash pair for @param trash,
@@ -321,7 +363,8 @@ class TaskManager(object):
                         # (can be set immediately as DONE at that time)
                     return
 
-    def calculate_ticks_to_destination_on_conveyor(self, trash, trash_dest):
+    @staticmethod
+    def calculate_ticks_to_destination_on_conveyor(trash: Trash, trash_dest: list[int]) -> float:
         """
         Calculate the number of ticks it takes to the trash object to get to the
         destination.
@@ -333,7 +376,7 @@ class TaskManager(object):
         return math.ceil(diff / 0.00104)
         # TODO - 0.00104 is based on the current conveyor speed, change this to be general for every conveyor speed
 
-    def get_ticks_for_full_task_heuristic(self, path_to_trash_len, path_to_bin_len):
+    def get_ticks_for_full_task_heuristic(self, path_to_trash_len: int, path_to_bin_len: int) -> int:
         """"
         Get estimation for number of ticks for a full task (moving to trash, picking, moving to bin, dropping)
         """
@@ -342,9 +385,8 @@ class TaskManager(object):
                2 * Robotiq2F85.TICKS_TO_CHANGE_GRIP + \
                self.get_ticks_for_path_to_bin_heuristic(path_to_bin_len)
 
-
     @staticmethod
-    def get_ticks_for_path_to_trash_heuristic(path_len: int):
+    def get_ticks_for_path_to_trash_heuristic(path_len: int) -> float:
         if path_len < 10:
             print('WARNING: unexpected path to trash length, enhance the get_ticks_for_path_to_trash_heuristic')
             return path_len * 40  # arbitrary, we didn't see such examples
@@ -358,7 +400,7 @@ class TaskManager(object):
         # The pattern we found: 2,x,...,x,1,x,... where x is 47.4 in expectation (#ticks per conf series)
 
     @staticmethod
-    def get_ticks_for_path_to_bin_heuristic(path_len: int):
+    def get_ticks_for_path_to_bin_heuristic(path_len: int) -> int:
         if path_len < 3:
             print('WARNING: unexpected path to trash length, enhance the get_ticks_for_path_to_bin_heuristic')
             return path_len * 40  # arbitrary, we didn't see such examples

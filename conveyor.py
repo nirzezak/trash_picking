@@ -1,8 +1,13 @@
+from typing import Optional
+
 import pybullet as p
+
+from multiarm_planner.UR5 import UR5
 
 
 class Conveyor(object):
-    def __init__(self, p_simulation, location, speed=5, urdf_path=None, arms=None):
+    def __init__(self, p_simulation, location: list[int], speed: float = 5.0, urdf_path=None,
+                 arms: Optional[list[UR5]] = None):
         """
         @param p_simulation: pybullet simulation physics client
         """
