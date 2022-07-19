@@ -357,10 +357,10 @@ class TaskManager(object):
                     # case 2: it's a 2-trash task
                     else:
                         pass
-                        # TODO ENHANCE - we currently leave this task but the trash is not there so the arm moves for nothing.
-                        # we can convert this task to be a null task- it will still be there so the manager won't assign
-                        # other tasks in this tick period but when executed, the arm won't move
-                        # (can be set immediately as DONE at that time)
+                        # TODO ENHANCE - we currently leave this task but the trash is not there so the arm moves
+                        #   for nothing. we can convert this task to be a null task- it will still be there so the
+                        #   manager won't assign other tasks in this tick period but when executed, the arm won't move
+                        #   (can be set immediately as DONE at that time)
                     return
 
     @staticmethod
