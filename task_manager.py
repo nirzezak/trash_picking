@@ -266,37 +266,32 @@ class TaskManager(object):
                 # try to assign a single trash task
                 self.add_trash_task_to_arms_group([trash])
 
-    def notify_arms(self):
+    def notify_arms_and_remove_completed_tasks(self):
         """
-        Notify arms about tasks that they should perform
+        Notify arms about tasks that they should perform in the current tick
+        and remove done tasks
         """
-        # TODO - change time to ticks, use self.arms_to_tasks instead of self.waiting_tasks
-        curr_time = time.time()
-        i = 0
-        awakened_tasks = []
-        for i in range(len(self.waiting_tasks)):
-            # Search for the tasks that should still be waiting
-            if self.waiting_tasks[0].notify_time > curr_time:
-                awakened_tasks = self.waiting_tasks[:i]
-                self.waiting_tasks = self.waiting_tasks[i:]
-                break
-
-        # If all of the tasks should be awakened:
-        if i == len(self.waiting_tasks) - 1:
-            awakened_tasks = self.waiting_tasks
-            self.waiting_tasks = []
-
-        # Change state of tasks here to DISPATCHED
-        for task in awakened_tasks:
-            task.state = TaskState.DISPATCHED
-            # for arm in task.arms:
-            #     arm.start_task()
-
-        # TODO: Ask Nir how to actually talk to the arms
-
-        # Move tasks to the dispatched tasks list
-        if len(awakened_tasks) > 0:
-            print(f'new tasks len: {len(awakened_tasks)}')
+        curr_tick = 0  # TODO OMER - update curr_tick
+        for arm in self.arms:
+            idx_of_first_not_done = 0
+            for task in self.arms_to_tasks[arm]:
+                if task.state == TaskState.DONE:
+                    idx_of_first_not_done += 1
+                else:
+                    if task.start_tick <= curr_tick and task.state == TaskState.WAIT:
+                        # start executing this task
+                        task.state = TaskState.DISPATCHED
+                        arm.start_task()
+                    # 3 cases possible here:
+                    # - we started executing this task
+                    # - this task was already in execute (TaskState.DISPATCHED state)
+                    # - this task start_tick > curr_tick (--> all next tasks in the list will also
+                    # satisfy this condition)
+                    #
+                    # in all cases we can stop iterating over this tasks list
+                    break
+            # remove done tasks
+            self.arms_to_tasks[arm] = self.arms_to_tasks[arm][idx_of_first_not_done:]
 
     def remove_trash(self, trash_id):
         """
