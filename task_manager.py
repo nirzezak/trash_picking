@@ -3,7 +3,7 @@ from enum import Enum, auto
 import numpy as np
 
 import pybullet as p
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 
 from multiarm_planner.multiarm_environment import split_arms_conf_lst
 from background_environment import BackgroundEnv
@@ -24,7 +24,7 @@ class TaskState(Enum):
 
 class Task(object):
     def __init__(self, trash: Trash, arm: UR5, start_tick: int, len_in_ticks: int, path_to_trash: list,
-                 path_to_bin: list, arms_involved: list[UR5]):
+                 path_to_bin: list, arms_involved: List[UR5]):
         """
         @param trash: The trash object
         @param arm: The arm tasked with sorting the trash.
@@ -47,7 +47,7 @@ class Task(object):
 
 # TODO SHIR - use tick as time instead of real time
 class TaskManager(object):
-    def __init__(self, arms: list[UR5], arms_idx_pairs: list[list[int]], bins: list[Bin], trash_velocity: float):
+    def __init__(self, arms: List[UR5], arms_idx_pairs: List[List[int]], bins: List[Bin], trash_velocity: float):
         """
         @param arms: A list of all of the available arms
         @param arms_idx_pairs: a list of arm pairs, each pair is represented as a list (length=2),
@@ -79,7 +79,7 @@ class TaskManager(object):
 
         self.max_dist_between_trash_pair_y_axis = 2 * ARM_TO_TRASH_MAX_DIST[1] + arm_pair_dist_y_axis
 
-    def get_arm_pair(self, arm_idx: int) -> list[int]:
+    def get_arm_pair(self, arm_idx: int) -> List[int]:
         for pair in self.arms_idx_pairs:
             if arm_idx in pair:
                 return pair
@@ -95,7 +95,7 @@ class TaskManager(object):
                 return i
         return len(tasks_lst)
 
-    def get_task_prev_and_next(self, arm: UR5, task_start_tick: int) -> Tuple[Task, Task]:
+    def get_task_prev_and_next(self, arm: UR5, task_start_tick: int) -> Tuple[Optional[Task], Optional[Task]]:
         """
         Returns 2 tasks from self.arms_to_tasks[arm]:
         - Prev task - the task with the highest start_tick that is still smaller (or =) than task_start_tick,
@@ -119,7 +119,7 @@ class TaskManager(object):
             arm_pair_idx.sort(key=lambda idx: self.arms[idx].get_pose()[0][1])
 
 
-    def _find_closest_bin(self, trash: Trash, arm: UR5) -> list[int]:
+    def _find_closest_bin(self, trash: Trash, arm: UR5) -> List[int]:
         """
         Finds the closest bin to the arm, that handles this type of trash.
 
@@ -364,7 +364,7 @@ class TaskManager(object):
                     return
 
     @staticmethod
-    def calculate_ticks_to_destination_on_conveyor(trash: Trash, trash_dest: list[int]) -> int:
+    def calculate_ticks_to_destination_on_conveyor(trash: Trash, trash_dest: List[int]) -> int:
         """
         Calculate the number of ticks it takes to the trash object to get to the
         destination.
