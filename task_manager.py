@@ -308,12 +308,11 @@ class TaskManager(object):
                 # try to assign a single trash task
                 self.add_trash_task_to_arms_group([trash])
 
-    def notify_arms_and_remove_completed_tasks(self):
+    def notify_arms_and_remove_completed_tasks(self, curr_tick: int) -> None:
         """
         Notify arms about tasks that they should perform in the current tick
         and remove done tasks
         """
-        curr_tick = 0  # TODO OMER - update curr_tick
         for arm in self.arms:
             idx_of_first_not_done = 0
             for task in self.arms_to_tasks[arm]:
