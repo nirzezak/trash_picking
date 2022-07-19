@@ -93,13 +93,13 @@ class TaskManager(object):
         collisions when both arms need to work on that trash bin.
         """
         # TODO: This function is probably useless, we can hardcode it, but I was
-        # too lazy to do it now...
+        #   too lazy to do it now...
         arm_loc = arm.pose[0]
         arm_loc = np.array(arm_loc)
 
         # Find the closest bin
         closest_bin_distance = math.inf
-        closest_bin = self.bins[0]
+        closest_bin = None
         for trash_bin in self.bins:
             if trash_bin.trash_type == trash.trash_type:
                 # Calculate distance
