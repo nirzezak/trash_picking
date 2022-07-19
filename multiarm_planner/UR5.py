@@ -487,7 +487,6 @@ class UR5:
         self.paths.append(path)
 
     def start_task(self, print_ticks_stat=False):
-        # TODO SHIR - use task instead of self.paths (in ur5_step)
         print('Arm starting task!')
         self.state = ArmState.MOVING_TO_TRASH
         self.first_config = True
