@@ -35,8 +35,7 @@ class RealEnv(Environment):
 
         # Call managing methods
         self.task_manager.handle_single_trash_that_passed_pnr()
-        self.task_manager.notify_arms(self.current_tick)
-        self.task_manager.remove_completed_tasks()
+        self.task_manager.notify_arms_and_remove_completed_tasks(self.current_tick)
 
         # Simulate the environment
         for arm in self.arms:
