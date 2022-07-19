@@ -275,7 +275,6 @@ class TaskManager(object):
                     task = Task(trash_lst[i], arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i],
                                 path_to_bin_per_arm[i], arms)
                     self.arms_to_tasks[arms[i]].insert(index_for_arm_tasks_lst[i], task)
-                    # TODO SHIR - add task to arm obj
                 return True
         return False
 
@@ -325,7 +324,7 @@ class TaskManager(object):
                     if task.start_tick <= curr_tick and task.state == TaskState.WAIT:
                         # start executing this task
                         task.state = TaskState.DISPATCHED
-                        arm.start_task()
+                        arm.start_task(task)
                     # 3 cases possible here:
                     # - we started executing this task
                     # - this task was already in execute (TaskState.DISPATCHED state)

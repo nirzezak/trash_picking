@@ -2,6 +2,9 @@ import pybullet as p
 import numpy as np
 import quaternion
 import random
+
+import task_manager
+from task_manager import Task
 from .rrt.pybullet_utils import (
     get_self_link_pairs,
     violates_limits
@@ -380,8 +383,8 @@ class UR5:
         self.closest_points_to_others = []
         self.closest_points_to_self = []
         self.max_distance_from_others = 0.5
-        self.tasks = []
-        self.paths = []
+        self.curr_task = None  # the current executed task
+        self.paths = None  # list of paths of the current executed task
         self.state = ArmState.IDLE
         self.current_tick = 0
         self.start_tick = 0
@@ -480,15 +483,10 @@ class UR5:
                 velocity=self.velocity,
                 acceleration=self.acceleration)
 
-    def add_task(self, task):
-        self.tasks.append(task)
-
-    def add_path(self, path):
-        self.paths.append(path)
-
-    def start_task(self, print_ticks_stat=False):
-        # TODO SHIR - use task instead of self.paths (in ur5_step)
+    def start_task(self, task: Task, print_ticks_stat=False):
         print('Arm starting task!')
+        self.curr_task = task
+        self.paths = [self.curr_task.path_to_trash, self.curr_task.path_to_bin]
         self.state = ArmState.MOVING_TO_TRASH
         self.first_config = True
         # For ticks statistics
@@ -501,6 +499,19 @@ class UR5:
                 f'{ArmState.MOVING_TO_BIN.name} #ticks per conf': []
             }
             self.print_ticks_stat = print_ticks_stat
+
+    def end_task(self):
+        self.curr_task.state = task_manager.TaskState.DONE
+
+        # reset current task fields
+        self.curr_task = None
+        self.paths = None
+
+        # For ticks statistics
+        if self.print_ticks_stat:
+            print(f'Total ticks: {self.current_tick}')
+            for k, v in self.ticks_stat.items():
+                print(f'{k}: {v}')
 
     def ur5_step(self):
         if self.state == ArmState.IDLE:
@@ -562,14 +573,9 @@ class UR5:
 
         if self.state == ArmState.RELEASING_TRASH:
             if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
-                if self.print_ticks_stat:
-                    print(f'Total ticks: {self.current_tick}')
-                    for k, v in self.ticks_stat.items():
-                        print(f'{k}: {v}')
                 self.state = ArmState.IDLE
-                # self.tasks[0].state = trash_generator.TaskState.DONE
                 self.stop_gripper()
-                self.tasks.pop(0)
+                self.end_task()
 
     def close_gripper(self):
         if self.end_effector is not None:
