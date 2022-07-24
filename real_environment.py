@@ -31,7 +31,6 @@ class RealEnv(Environment):
             config = random.choice(list(TrashConfig))
             trash = self.trash_generator.summon_trash(config.value)
             self.task_manager.add_trash(trash, self.current_tick)
-        self.p_simulation.stepSimulation()
 
         # Call managing methods
         self.task_manager.handle_single_trash_that_passed_pnr(self.current_tick)
