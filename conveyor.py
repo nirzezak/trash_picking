@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 from typing import Optional, List
 
 import pybullet as p
 
-from multiarm_planner.UR5 import UR5
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from multiarm_planner.UR5 import UR5
 
 
 class Conveyor(object):
