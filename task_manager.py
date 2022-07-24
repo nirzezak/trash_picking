@@ -262,6 +262,7 @@ class TaskManager(object):
                 # try to find pair of arms for this trash pair
                 if self.add_trash_task_to_arms_group([trash, older_trash], curr_tick):
                     # this pair trash is assigned to some pair of arms
+                    self.single_trash.remove(older_trash)
                     return
         # failed to assign this trash, add trash to self.single_trash
         self.single_trash.append(trash)
