@@ -329,6 +329,7 @@ class UR5:
             origin=self.pose[0])
         self.subtarget_joint_actions = False
         self.color = UR5.colors[UR5.next_available_color]
+        self.print_ticks_stat = False
         UR5.next_available_color = (UR5.next_available_color + 1)\
             % len(UR5.colors)
         if training:
@@ -498,7 +499,7 @@ class UR5:
                 f'{ArmState.MOVING_TO_TRASH.name} #ticks per conf': [],
                 f'{ArmState.MOVING_TO_BIN.name} #ticks per conf': []
             }
-            self.print_ticks_stat = print_ticks_stat
+        self.print_ticks_stat = print_ticks_stat
 
     def end_task(self):
         self.curr_task.state = TaskState.DONE
