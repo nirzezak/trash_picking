@@ -1,10 +1,10 @@
-from typing import Optional
+from typing import Optional, List
 
 import pybullet as p
 
 
 class Score(object):
-    def __init__(self, location: Optional[list[int]] = None):
+    def __init__(self, location: Optional[List[int]] = None):
         if not location:
             location = [0, 0, 2]
         self.location = location

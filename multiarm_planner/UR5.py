@@ -3,8 +3,7 @@ import numpy as np
 import quaternion
 import random
 
-import task_manager
-from task_manager import Task
+from task import TaskState, Task
 from .rrt.pybullet_utils import (
     get_self_link_pairs,
     violates_limits
@@ -63,6 +62,7 @@ class HemisphereWorkspace:
 
 NORMAL = 0
 TOUCHED = 1
+
 
 class Robotiq2F85:
     TICKS_TO_CHANGE_GRIP = 250
@@ -501,7 +501,7 @@ class UR5:
             self.print_ticks_stat = print_ticks_stat
 
     def end_task(self):
-        self.curr_task.state = task_manager.TaskState.DONE
+        self.curr_task.state = TaskState.DONE
 
         # reset current task fields
         self.curr_task = None

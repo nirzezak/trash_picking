@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 from trash import Trash
 
@@ -6,7 +6,7 @@ TRASH_BASE_OFFSET_FROM_CONV = [0, 0, 0.5]
 
 
 class TrashGenerator(object):
-    def __init__(self, p_simulation, interval: int, conveyor_dims: list[float], conveyor_location: list[float]):
+    def __init__(self, p_simulation, interval: int, conveyor_dims: List[float], conveyor_location: List[float]):
         """
         @param p_simulation: pybullet simulation physics client
         """
