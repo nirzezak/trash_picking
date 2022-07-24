@@ -1,4 +1,5 @@
 import math
+import random
 
 import pybullet as p
 
@@ -17,7 +18,7 @@ class RealEnv(Environment):
         super().__init__(connection_mode, conveyor_speed=0.025)
 
         # Manage the real environment: clocks, and scoreboard
-        self.task_manager = TaskManager(self.arms, self.bins, self.conveyor.speed)
+        self.task_manager = TaskManager(self.arms, self.arms_idx_pairs, self.bins, self.conveyor.speed)
         self.current_tick = 0
         self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL)
         self.score = Score()
@@ -26,16 +27,14 @@ class RealEnv(Environment):
         # TODO: Could be converted to an event loop
 
         # Summon trash every couple of seconds
-        if self.current_tick == self.summon_tick:
-            trash = self.trash_generator.summon_trash(TrashConfig.MUSTARD)
-            self.task_manager.add_trash(trash)
-            self.current_tick = 0
-        self.p_simulation.stepSimulation()
+        if self.current_tick % self.summon_tick == 0:
+            config = random.choice(list(TrashConfig))
+            trash = self.trash_generator.summon_trash(config.value)
+            self.task_manager.add_trash(trash, self.current_tick)
 
         # Call managing methods
-        self.task_manager.try_dispatch_tasks()
-        self.task_manager.notify_arms()
-        self.task_manager.remove_completed_tasks()
+        self.task_manager.handle_single_trash_that_passed_pnr(self.current_tick)
+        self.task_manager.notify_arms_and_remove_completed_tasks(self.current_tick)
 
         # Simulate the environment
         for arm in self.arms:
@@ -43,13 +42,13 @@ class RealEnv(Environment):
 
         self.p_simulation.stepSimulation()
         self.conveyor.convey()
-        self.remove_uncaught_trash()
+        self.remove_lost_cause_trash()
         self.current_tick += 1
 
-    def remove_uncaught_trash(self):
+    def remove_lost_cause_trash(self):
         contact_points = self.p_simulation.getContactPoints(bodyA=self.plane)
         body_uids = set([point[2] for point in contact_points])
         for body_uid in body_uids:
             if body_uid not in [self.conveyor, *self.bins]:
                 self.trash_generator.remove_trash(body_uid)
-                self.task_manager.remove_uncaught_trash_task(body_uid)
+                self.task_manager.remove_trash(body_uid)

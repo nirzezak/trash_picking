@@ -1,9 +1,12 @@
+from typing import Optional, List
+
 from trash import Trash
 
 TRASH_BASE_OFFSET_FROM_CONV = [0, 0, 0.5]
 
+
 class TrashGenerator(object):
-    def __init__(self, p_simulation, interval, conveyor_dims, conveyor_location):
+    def __init__(self, p_simulation, interval: int, conveyor_dims: List[float], conveyor_location: List[float]):
         """
         @param p_simulation: pybullet simulation physics client
         """
@@ -13,15 +16,12 @@ class TrashGenerator(object):
         self.trash = []
         self.p_simulation = p_simulation
 
-    def summon_trash(self, trash_config, forced_location=None):
-        config = trash_config.value
-        if forced_location is not None:
-            config['location'] = forced_location
-        new_trash = Trash(self.p_simulation, **config)
+    def summon_trash(self, trash_config: dict) -> Trash:
+        new_trash = Trash(self.p_simulation, **trash_config)
         self.trash.append(new_trash)
         return new_trash
 
-    def remove_trash(self, trash_uid=None):
+    def remove_trash(self, trash_uid: Optional[int] = None):
         """"
         If trash_uid=None, removes all trash
         Else, removes trash with id = trash_uid

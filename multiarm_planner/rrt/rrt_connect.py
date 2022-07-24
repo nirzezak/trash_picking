@@ -28,7 +28,7 @@ def rrt_connect(q1,
                 record=False):
     start_time = time.time()
     if collision(q1) or collision(q2):
-        return None
+        return None, 0, 0
     root1, root2 = TreeNode(q1), TreeNode(q2)
     nodes1, nodes2 = [root1], [root2]
     edges = []

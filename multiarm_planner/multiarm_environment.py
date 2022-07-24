@@ -11,6 +11,23 @@ from .rrt.pybullet_utils import configure_pybullet, draw_line, remove_all_marker
 from .robot_ur5_env import MultiRobotUR5Env
 from .mrdrrt.mrdrrt_planner import MRdRRTPlanner
 
+def split_arms_conf_lst(arms_conf_lst, n_arm):
+    """
+    @param arms_conf_lst: list of configuration for all arms together (as obtained from birrt method in MultiarmEnvironment)
+    @param n_arm: number of arms used to create this @param arms_conf_lst
+    Returns list of configuration lists, for each arm separately
+    """
+    arm_conf_len = 6
+    return [[conf[arm_conf_len * i:arm_conf_len * (i + 1)] for conf in arms_conf_lst] for i in range(n_arm)]
+
+def split_arms_conf(arms_conf, n_arm):
+    """
+    @param arms_conf: 1 configuration of all arms together (as obtained from birrt method in MultiarmEnvironment)
+    @param n_arm: number of arms used to create this @param arms_conf_lst
+    Returns list of configuration, for each arm
+    """
+    arm_conf_len = 6
+    return [arms_conf[arm_conf_len * i:arm_conf_len * (i + 1)] for i in range(n_arm)]
 
 class MultiarmEnvironment:
     def __init__(self, p_env, ur5_arms, gui=True, visualize=False):
@@ -138,11 +155,20 @@ class MultiarmEnvironment:
 
         return start_configs, goal_configs, ur5_poses
 
-    def birrt(self, ur5_arms, goal_positions, start_configs=None):
+    def birrt(self, ur5_arms, goal_positions, start_configs=None, max_attempts=1):
+        """"
+        Returns a list of configurations for the arms to get to the goal_positions, or None if it couldn't find a path.
+        @param max_attempts: number of attempts to find a path
+        """
         current_configs, goal_configs, current_poses = self.get_configs_for_rrt(ur5_arms, goal_positions)
         start_configs = current_configs if start_configs is None else start_configs
 
-        return self._birrt(ur5_arms, start_configs, goal_configs, current_poses)[0]
+        path = None
+        attempt_count = 1
+        while path is None and attempt_count <= max_attempts:
+            path = self._birrt(ur5_arms, start_configs, goal_configs, current_poses)[0]
+            attempt_count += 1
+        return path
 
     def mrdrrt(self, ur5_arms, goal_positions, start_configs=None):
         current_configs, goal_configs, current_poses = self.get_configs_for_rrt(ur5_arms, goal_positions)

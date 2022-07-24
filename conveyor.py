@@ -1,8 +1,17 @@
+from __future__ import annotations
+
+from typing import Optional, List
+
 import pybullet as p
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from multiarm_planner.UR5 import UR5
 
 
 class Conveyor(object):
-    def __init__(self, p_simulation, location, speed=5, urdf_path=None, arms=None):
+    def __init__(self, p_simulation, location: List[int], speed: float = 5.0, urdf_path=None,
+                 arms: Optional[List[UR5]] = None):
         """
         @param p_simulation: pybullet simulation physics client
         """
@@ -28,8 +37,8 @@ class Conveyor(object):
         for body_uid, link_index, _ in links:
             if body_uid in self.arms_ids:
                 continue
-            linear_velocity, angular_velocity = self.p_simulation.getBaseVelocity(body_uid)
+            linear_velocity, _ = self.p_simulation.getBaseVelocity(body_uid)
             _, _, vz = linear_velocity
             linear_velocity = (0, self.speed, vz)
-            self.p_simulation.resetBaseVelocity(body_uid, linear_velocity, angular_velocity)
+            self.p_simulation.resetBaseVelocity(body_uid, linear_velocity, (0, 0, 0))
             self.p_simulation.changeDynamics(body_uid, link_index, lateralFriction=0, anisotropicFriction=0)

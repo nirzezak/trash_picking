@@ -28,10 +28,15 @@ class Trash(object):
         self.path = path
         self.gripping_points = np.array(gripping_points)
         self.id = p_simulation.loadURDF(self.path, location, useFixedBase=False)
-        self.location = location
         self.trash_size = len(self.gripping_points)
         self.p_simulation = p_simulation
         self.trash_type = trash_type
+
+        self.trash_config = {
+            'path': self.path,
+            'location': location,
+            'gripping_points': self.gripping_points
+        }
 
     def get_curr_gripping_points(self):
         """
@@ -51,5 +56,13 @@ class Trash(object):
 
         return new_gripping_points
 
+    def get_curr_position(self):
+        return self.p_simulation.getBasePositionAndOrientation(self.id)[0]
+
     def get_id(self):
         return self.id
+
+    def get_trash_config_at_loc(self, location):
+        conf = self.trash_config.copy()
+        conf['location'] = location
+        return conf
