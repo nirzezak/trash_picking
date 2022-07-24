@@ -246,6 +246,7 @@ class TaskManager(object):
                     task = Task(trash_lst[i], arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i],
                                 path_to_bin_per_arm[i], arms)
                     self.arms_to_tasks[arms[i]].insert(index_for_arm_tasks_lst[i], task)
+                print("Found paths for task!")
                 return True
         return False
 
