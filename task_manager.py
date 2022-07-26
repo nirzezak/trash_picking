@@ -15,6 +15,12 @@ ARM_TO_TRASH_MAX_DIST = [0.1, 0.1, 0.1]  # TODO - find real values
 TRASH_INIT_Y_VAL = -1  # TODO - make this dynamic
 ARMS_SAFETY_OFFSET = 0.1
 
+TICKS_TO_TRASH_LOW_BOUND = 700  # lower bound estimation for number of ticks it takes for an arm to move to a
+# trash on the conveyor. Used to determine whether an arm can possibly do some task
+TICKS_FULL_TASK_LOW_BOUND = 2000  # lower bound estimation for number of ticks it takes for an arm to do a full task.
+# Used to determine whether an arm can possibly do some task
+TICKS_AFTER_GETTING_TO_TRASH_LOW_BOUND = TICKS_FULL_TASK_LOW_BOUND - TICKS_TO_TRASH_LOW_BOUND
+
 
 class TaskManager(object):
     def __init__(self, arms: List[UR5], arms_idx_pairs: List[List[int]], bins: List[Bin], trash_velocity: float):
@@ -200,53 +206,81 @@ class TaskManager(object):
             return False
 
         for arm_pair_idx in self.arms_idx_pairs:
+            # arm_pair_idx - arms candidate for doing this task
             arms = [self.arms[arm_idx] for arm_idx in arm_pair_idx]
             arms = arms[:n_trash]
             # the match between arms and trash is by their order on the y-axis --> arms[i] picks trash_lst[i]
-            # find what will be the start tick of the task if this arm pair will do the task
+
+            # 1. find what will be the picking tick of the task if this arm pair will do the task
+            # picking tick := the tick in which the arms will pick the trash
             trash_group_picking_points = self.calc_trash_picking_point(arms, trash_lst)
-            # start tick is the same for all arms in the group
-            start_tick = curr_tick + \
-                         self.calculate_ticks_to_destination_on_conveyor(trash_lst[0], trash_group_picking_points[0])
+            # picking tick is the same for all arms in the group
+            picking_tick = curr_tick + self.calculate_ticks_to_destination_on_conveyor(trash_lst[0],
+                                                                                       trash_group_picking_points[0])
             # assume that it's enough to check if the first arm of the pair is free
-            # find the prev_task, next_task of the first arm
-            prev_task, next_task = self.get_task_prev_and_next(arms[0], start_tick)
-            # check if the arm is unoccupied in start_tick
-            if prev_task is None or start_tick > prev_task.start_tick + prev_task.len_in_ticks:
-                bin_dst_loc = [self._find_closest_bin(trash, arm) for trash, arm in zip(trash_lst, arms)]
+            # start_tick_upper_bound - upper bound for the task's start tick
+            start_tick_upper_bound = picking_tick - TICKS_TO_TRASH_LOW_BOUND
 
-                index_for_arm_tasks_lst = [self.get_index_for_new_task(arm, start_tick) for arm in arms]
-                arm_start_conf = [arm.get_arm_joint_values() if idx == 0 else
-                                  self.arms_to_tasks[arm][idx - 1].path_to_bin[-1]
-                                  for arm, idx in zip(arms, index_for_arm_tasks_lst)]  # TODO SHIR - when we add task in the middle of the task list, we are ruining the arm_start_conf of next_task.
+            # 2. find the prev_task, next_task with the estimation for the start tick for the first arm
+            prev_task, next_task = self.get_task_prev_and_next(arms[0], start_tick_upper_bound)
 
-                trash_conf = [trash_lst[i].get_trash_config_at_loc(trash_group_picking_points[i]) for i in range(n_trash)]
-                motion_plan_res = self.background_env.compute_motion_plan(arm_pair_idx[:n_trash],
-                                                                          trash_conf,
-                                                                          bin_dst_loc, arm_start_conf)
-                if motion_plan_res is None:
-                    # couldn't find a path
-                    continue
-                path_to_trash, path_to_bin = motion_plan_res
-                len_in_ticks = self.get_ticks_for_full_task_heuristic(len(path_to_trash), len(path_to_bin))
+            # 3. check if the arms are possibly available to do this task
+            # 3.1 check if this task needs to begin before prev_task is done
+            if prev_task is not None and start_tick_upper_bound <= prev_task.start_tick + prev_task.len_in_ticks:
+                # this task needs to begin before prev_task is done, can't assigned it to this arm
+                continue
+            # 3.2 check if this task will be finished after next_task begins
+            if next_task is not None and picking_tick + TICKS_AFTER_GETTING_TO_TRASH_LOW_BOUND >= next_task.start_tick:
+                # this task won't finish in time, can't assigned it to this arm
+                continue
 
-                # check if this task will be finished before next_task begins
-                if next_task is not None and next_task.start_tick <= start_tick + len_in_ticks:
-                    # this task won't finish in time, can't assigned it to this arm
-                    continue
+            # this arms group is possibly free to do this task
+            # 4. find motion plan for arms
+            bin_dst_loc = [self._find_closest_bin(trash, arm) for trash, arm in zip(trash_lst, arms)]
 
-                # this arm pair can do the new task!
+            index_for_arm_tasks_lst = [self.get_index_for_new_task(arm, start_tick_upper_bound) for arm in arms]
+            arm_start_conf = [arm.get_arm_joint_values() if idx == 0 else
+                              self.arms_to_tasks[arm][idx - 1].path_to_bin[-1]
+                              for arm, idx in zip(arms, index_for_arm_tasks_lst)]  # TODO SHIR - when we add task in the middle of the task list, we are ruining the arm_start_conf of next_task.
 
-                path_to_trash_per_arm = split_arms_conf_lst(path_to_trash, n_trash)
-                path_to_bin_per_arm = split_arms_conf_lst(path_to_bin, n_trash)
+            trash_conf = [trash_lst[i].get_trash_config_at_loc(trash_group_picking_points[i])
+                          for i in range(n_trash)]
+            motion_plan_res = self.background_env.compute_motion_plan(arm_pair_idx[:n_trash],
+                                                                      trash_conf,
+                                                                      bin_dst_loc, arm_start_conf)
+            if motion_plan_res is None:
+                # couldn't find a path
+                continue
 
-                # add the task to arms
-                for i in range(n_trash):
-                    task = Task(trash_lst[i], arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i],
-                                path_to_bin_per_arm[i], arms)
-                    self.arms_to_tasks[arms[i]].insert(index_for_arm_tasks_lst[i], task)
-                print("Found paths for task!")
-                return True
+            # 4. check if the arms are available to do this task by the motion plan result
+            path_to_trash, path_to_bin = motion_plan_res
+            len_in_ticks = self.get_ticks_for_full_task_heuristic(len(path_to_trash), len(path_to_bin))
+
+            start_tick = picking_tick - self.get_ticks_for_path_to_trash_heuristic(len(path_to_trash))
+
+            # 4.1 check if this task needs to begin before prev_task is done
+            if prev_task is not None and prev_task.start_tick + prev_task.len_in_ticks >= start_tick:
+                # this task needs to begin before prev_task is done, can't assigned it to this arm
+                continue
+
+            # 4.2 check if this task will be finished after next_task begins
+            if next_task is not None and next_task.start_tick <= start_tick + len_in_ticks:
+                # this task won't finish in time, can't assigned it to this arm
+                continue
+
+            # this arm pair can do the new task!
+
+            path_to_trash_per_arm = split_arms_conf_lst(path_to_trash, n_trash)
+            path_to_bin_per_arm = split_arms_conf_lst(path_to_bin, n_trash)
+
+            # 5. add the task to arms
+            for i in range(n_trash):
+                task = Task(trash_lst[i], arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i],
+                            path_to_bin_per_arm[i], arms)
+                self.arms_to_tasks[arms[i]].insert(index_for_arm_tasks_lst[i], task)
+            print("Found paths for task!")
+            return True
+        # no available arm group found
         return False
 
     def add_trash(self, trash: Trash, curr_tick: int):
