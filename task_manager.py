@@ -88,7 +88,6 @@ class TaskManager(object):
         for arm_pair_idx in self.arms_idx_pairs:
             arm_pair_idx.sort(key=lambda idx: self.arms[idx].get_pose()[0][1])
 
-
     def _find_closest_bin(self, trash: Trash, arm: UR5) -> List[int]:
         """
         Finds the closest bin to the arm, that handles this type of trash.
@@ -337,18 +336,17 @@ class TaskManager(object):
                         #   (can be set immediately as DONE at that time)
                     return
 
-    @staticmethod
-    def calculate_ticks_to_destination_on_conveyor(trash: Trash, trash_dest: List[int]) -> int:
+    def calculate_ticks_to_destination_on_conveyor(self, trash: Trash, trash_dest: List[int]) -> int:
         """
         Calculate the number of ticks it takes to the trash object to get to the
         destination.
         Note that since the conveyor only moves objects in the Y axis, the
         distance is calculated based on that.
         """
+        distance_per_tick = 0.0042 * self.trash_velocity
         curr_location = trash.get_curr_position()
         diff = abs(curr_location[1] - trash_dest[1])
-        return math.ceil(diff / 0.00104)
-        # TODO - 0.00104 is based on the current conveyor speed, change this to be general for every conveyor speed
+        return math.ceil(diff / distance_per_tick)
 
     def get_ticks_for_full_task_heuristic(self, path_to_trash_len: int, path_to_bin_len: int) -> int:
         """"

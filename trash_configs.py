@@ -1,6 +1,7 @@
 from enum import Enum
 import trash_types
 
+
 class TrashConfig(Enum):
 
     MUSTARD = {
