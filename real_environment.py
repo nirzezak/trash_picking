@@ -7,7 +7,8 @@ import ticker
 from environment import Environment
 from score import Score
 from summon_component import RandomSummonComponent, DeterministicSummonComponent, FixedAmountSummonComponent
-from task_manager import TaskManager
+from task_manager import AdvancedTaskManager, SimpleTaskManager
+from trash_configs import TrashConfig
 
 
 class RealEnv(Environment):
@@ -18,17 +19,16 @@ class RealEnv(Environment):
         super().__init__(connection_mode, conveyor_speed=0.075)
 
         # Manage the real environment: clocks, and scoreboard
-        self.task_manager = TaskManager(self.arms, self.arms_idx_pairs, self.bins, self.conveyor.speed)
+        self.task_manager = SimpleTaskManager(self.arms, self.bins, self.conveyor.speed)
         self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL)
         self.score = Score()
-        self.summon_component = DeterministicSummonComponent(self.trash_generator, self.task_manager, self.summon_tick)
+        self.summon_component = FixedAmountSummonComponent(self.trash_generator, self.task_manager, self.summon_tick, trash=TrashConfig.METAL_CAN)
 
     def step(self):
         self.summon_component.step()
 
         # Call managing methods
-        self.task_manager.handle_single_trash_that_passed_pnr()
-        self.task_manager.notify_arms_and_remove_completed_tasks()
+        self.task_manager.step()
 
         # Simulate the environment
         for arm in self.arms:
