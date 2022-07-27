@@ -1,5 +1,4 @@
 import math
-import random
 
 import pybullet as p
 
@@ -7,8 +6,8 @@ import environment
 import ticker
 from environment import Environment
 from score import Score
+from summon_component import RandomSummonComponent, DeterministicSummonComponent, FixedAmountSummonComponent
 from task_manager import TaskManager
-from trash_configs import TrashConfig
 
 
 class RealEnv(Environment):
@@ -22,15 +21,10 @@ class RealEnv(Environment):
         self.task_manager = TaskManager(self.arms, self.arms_idx_pairs, self.bins, self.conveyor.speed)
         self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL)
         self.score = Score()
+        self.summon_component = DeterministicSummonComponent(self.trash_generator, self.task_manager, self.summon_tick)
 
     def step(self):
-        # TODO: Could be converted to an event loop
-
-        # Summon trash every couple of seconds
-        if ticker.now() % self.summon_tick == 0:
-            config = random.choice(list(TrashConfig))
-            trash = self.trash_generator.summon_trash(config.value)
-            self.task_manager.add_trash(trash)
+        self.summon_component.step()
 
         # Call managing methods
         self.task_manager.handle_single_trash_that_passed_pnr()
