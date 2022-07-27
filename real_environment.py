@@ -4,6 +4,7 @@ import random
 import pybullet as p
 
 import environment
+import ticker
 from environment import Environment
 from score import Score
 from task_manager import TaskManager
@@ -15,11 +16,10 @@ class RealEnv(Environment):
         """"
         :param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
         """
-        super().__init__(connection_mode, conveyor_speed=0.025)
+        super().__init__(connection_mode, conveyor_speed=0.075)
 
         # Manage the real environment: clocks, and scoreboard
         self.task_manager = TaskManager(self.arms, self.arms_idx_pairs, self.bins, self.conveyor.speed)
-        self.current_tick = 0
         self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL)
         self.score = Score()
 
@@ -27,14 +27,14 @@ class RealEnv(Environment):
         # TODO: Could be converted to an event loop
 
         # Summon trash every couple of seconds
-        if self.current_tick % self.summon_tick == 0:
+        if ticker.now() % self.summon_tick == 0:
             config = random.choice(list(TrashConfig))
             trash = self.trash_generator.summon_trash(config.value)
-            self.task_manager.add_trash(trash, self.current_tick)
+            self.task_manager.add_trash(trash)
 
         # Call managing methods
-        self.task_manager.handle_single_trash_that_passed_pnr(self.current_tick)
-        self.task_manager.notify_arms_and_remove_completed_tasks(self.current_tick)
+        self.task_manager.handle_single_trash_that_passed_pnr()
+        self.task_manager.notify_arms_and_remove_completed_tasks()
 
         # Simulate the environment
         for arm in self.arms:
@@ -43,7 +43,7 @@ class RealEnv(Environment):
         self.p_simulation.stepSimulation()
         self.conveyor.convey()
         self.remove_lost_cause_trash()
-        self.current_tick += 1
+        ticker.tick()
 
     def remove_lost_cause_trash(self):
         contact_points = self.p_simulation.getContactPoints(bodyA=self.plane)

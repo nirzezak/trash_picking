@@ -4,6 +4,7 @@ import numpy as np
 import pybullet as p
 from typing import List, Dict, Tuple, Optional
 
+import ticker
 from multiarm_planner.multiarm_environment import split_arms_conf_lst
 from background_environment import BackgroundEnv
 from multiarm_planner.UR5 import Robotiq2F85, UR5
@@ -283,10 +284,9 @@ class TaskManager(object):
         # no available arm group found
         return False
 
-    def add_trash(self, trash: Trash, curr_tick: int):
+    def add_trash(self, trash: Trash):
         """
         @param trash: The trash to add
-        @param curr_tick: the current tick count
         Try to find a trash pair for @param trash,
         if a pair is found, give this 2 trash task to a pair of arms (if possible)
         otherwise, add @param trash to self.single_trash list
@@ -294,16 +294,15 @@ class TaskManager(object):
         for older_trash in self.single_trash:
             if self.can_be_trash_pair(trash, older_trash):
                 # try to find pair of arms for this trash pair
-                if self.add_trash_task_to_arms_group([trash, older_trash], curr_tick):
+                if self.add_trash_task_to_arms_group([trash, older_trash], ticker.now()):
                     # this pair trash is assigned to some pair of arms
                     self.single_trash.remove(older_trash)
                     return
         # failed to assign this trash, add trash to self.single_trash
         self.single_trash.append(trash)
 
-    def handle_single_trash_that_passed_pnr(self, curr_tick):
+    def handle_single_trash_that_passed_pnr(self):
         """"
-        @param curr_tick: the current tick count
         - Remove all trash from self.single_trash that passed the PNR (point of no return- a point in which this trash
         cannot be paired in the future, and will stay forever alone),
         - Try to assign each of those lonely trash to some arm. If it can't be assigned, give up on this trash,
@@ -314,9 +313,9 @@ class TaskManager(object):
             if trash.get_curr_position()[1] - TRASH_INIT_Y_VAL >= self.max_dist_between_trash_pair_y_axis:
                 self.single_trash.remove(trash)
                 # try to assign a single trash task
-                self.add_trash_task_to_arms_group([trash], curr_tick)
+                self.add_trash_task_to_arms_group([trash], ticker.now())
 
-    def notify_arms_and_remove_completed_tasks(self, curr_tick: int) -> None:
+    def notify_arms_and_remove_completed_tasks(self) -> None:
         """
         Notify arms about tasks that they should perform in the current tick
         and remove done tasks
@@ -327,7 +326,7 @@ class TaskManager(object):
                 if task.state == TaskState.DONE:
                     idx_of_first_not_done += 1
                 else:
-                    if task.start_tick <= curr_tick and task.state == TaskState.WAIT:
+                    if task.start_tick <= ticker.now() and task.state == TaskState.WAIT:
                         # start executing this task
                         task.state = TaskState.DISPATCHED
                         arm.start_task(task)
