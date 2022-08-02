@@ -18,7 +18,8 @@ from .rrt.pybullet_utils import (
     get_joint_positions,
     get_link_pose,
     inverse_kinematics,
-    forward_kinematics
+    forward_kinematics,
+    JointState
 )
 from math import pi
 from threading import Thread
@@ -650,9 +651,7 @@ class UR5:
         return link_world_positions
 
     def get_arm_joint_values(self):
-        return np.array(get_joint_positions(
-            self.body_id,
-            self.GROUP_INDEX['arm']))
+        return np.array([JointState(*self.p_simulation.getJointState(self.body_id, joint)).jointPosition for joint in self.GROUP_INDEX['arm']])
 
     def reset(self):
         self.set_arm_joints(self.home_config)
