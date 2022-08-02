@@ -4,7 +4,8 @@ import numpy as np
 from environment import Environment
 from multiarm_planner.multiarm_environment import split_arms_conf
 
-MAX_ATTEMPS_TO_FIND_PATH = 200
+MAX_ATTEMPTS_TO_FIND_PATH = 200
+
 
 class BackgroundEnv(Environment):
     def __init__(self, connection_mode=p.DIRECT):
@@ -13,12 +14,13 @@ class BackgroundEnv(Environment):
         """
         super().__init__(connection_mode, conveyor_speed=0, set_pybullet_utils_p=True)
 
-    def compute_motion_plan(self, arms_idx, trash, bin_locations, start_configs):
+    def compute_motion_plan(self, arms_idx, trash, bin_locations, start_configs, real_arms=None):
         """"
         @param arms_idx: arm indices to find paths for
         @param trash: list of trash configs, same order as in arms_idx
         @param bin_locations: list of bin locations, same order as in arms_idx
         @param start_configs: list of start configs of the arms, same order as in arms_idx
+        @param real_arms: list of arms in the real environment, same order as in the background environment
 
         @returns:
         if path is found, returns paths to trash, paths to bin
@@ -27,6 +29,9 @@ class BackgroundEnv(Environment):
 
         if no path found, return None
         """
+        if real_arms is not None:
+            self.sync_arm_positions(real_arms)
+
         paths_to_trash = self.compute_path_to_trash(arms_idx, trash, start_configs)
         if paths_to_trash is None:
             return None
@@ -70,7 +75,7 @@ class BackgroundEnv(Environment):
             arms_to_actual_goal_configs[self.arms[arm_idx]] = end_pos2
 
         path_to_above_position = self.arms_manager.birrt(arms_to_above_position_configs.keys(), arms_to_above_position_configs.values(),
-                                       start_configs=start_configs, max_attempts=MAX_ATTEMPS_TO_FIND_PATH)
+                                                         start_configs=start_configs, max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
         if path_to_above_position is None:
             self.trash_generator.remove_trash()
             return None
@@ -81,7 +86,7 @@ class BackgroundEnv(Environment):
         path_from_above_pos_to_actual_pos = self.arms_manager.birrt(arms_to_actual_goal_configs.keys(),
                                                                     arms_to_actual_goal_configs.values(),
                                                                     start_configs=above_pos_conf_per_arm,
-                                                                    max_attempts=MAX_ATTEMPS_TO_FIND_PATH)
+                                                                    max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
         if path_from_above_pos_to_actual_pos is None:
             self.trash_generator.remove_trash()
             return None
@@ -107,4 +112,14 @@ class BackgroundEnv(Environment):
             bin_loc[2] += 0.85
             end_poses.append([bin_loc, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])])
         return self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], end_poses, start_configs,
-                                       max_attempts=MAX_ATTEMPS_TO_FIND_PATH)
+                                       max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
+
+    def sync_arm_positions(self, real_arms):
+        """
+        @param real_arms: list of the arms in the real environment
+
+        Sets every arm in the background environment to the configuration of their respective arm in the real environment
+        """
+
+        for back_arm, real_arm in zip(self.arms, real_arms):
+            back_arm.set_arm_joints(real_arm.get_arm_joint_values())

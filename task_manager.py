@@ -281,7 +281,7 @@ class AdvancedTaskManager(TaskManagerComponent):
                           for i in range(n_trash)]
             motion_plan_res = self.background_env.compute_motion_plan(arm_pair_idx[:n_trash],
                                                                       trash_conf,
-                                                                      bin_dst_loc, arm_start_conf)
+                                                                      bin_dst_loc, arm_start_conf, self.arms)
             if motion_plan_res is None:
                 # couldn't find a path
                 continue
@@ -538,7 +538,8 @@ class SimpleTaskManager(TaskManagerComponent):
             motion_plan_res = self.background_env.compute_motion_plan(idx_pair,
                                                                       trash_conf,
                                                                       bin_dst_loc,
-                                                                      arm_start_conf)
+                                                                      arm_start_conf,
+                                                                      self.arms)
             if motion_plan_res is None:
                 continue
 
