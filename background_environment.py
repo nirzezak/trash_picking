@@ -57,13 +57,7 @@ class BackgroundEnv(Environment):
         for arm_idx, trash_conf in zip(arms_idx, trash):
             # TODO: Fix this entire block of code because it is super specific
             trash = self.trash_generator.summon_trash(trash_conf)
-            trash_pos, orientation = self.p_simulation.getBasePositionAndOrientation(trash.get_id())
-            trash_pos = list(trash_pos)
-
-            # First position above the trash (higher chance of not colliding)
-            trash_pos[2] += 0.7
-            trash_pos[1] += 0.025
-            trash_pos[0] += 0.1225
+            trash_pos = trash.get_curr_gripping_points()[0]
 
             end_pos = [trash_pos, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]  # This orientation is "from above", TODO- make this dynamic?
             arms_to_above_position_configs[self.arms[arm_idx]] = end_pos

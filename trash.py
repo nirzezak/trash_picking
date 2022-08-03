@@ -38,13 +38,17 @@ class Trash(object):
             'gripping_points': self.gripping_points
         }
 
-    def get_curr_gripping_points(self):
+    def get_curr_gripping_points(self, location=None):
         """
         Calculate the current gripping points, based on the current location,
         in world coordinates.
+
+        @param location: If provided, calculate at the given location instead
         """
         new_gripping_points = []
         pos, orientation = self.p_simulation.getBasePositionAndOrientation(self.id)
+        if location:
+            pos = location
         # Create the rotation matrix from the orientation
         rotation_matrix = p.getMatrixFromQuaternion(orientation)
         rotation_matrix = np.array(rotation_matrix).reshape((3, 3))

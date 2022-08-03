@@ -455,7 +455,7 @@ class SimpleTaskManager(TaskManagerComponent):
         self.bins = bins
         self.trash_velocity = trash_velocity
 
-        self.background_env = BackgroundEnv(p.DIRECT)
+        self.background_env = BackgroundEnv()
 
         self.single_trash = []
         self.arms_to_tasks = {arm: None for arm in self.arms}
