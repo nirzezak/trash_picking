@@ -25,7 +25,6 @@ class Conveyor(object):
         self.arms_ids = []
         if arms:
             self.arms_ids = [arm.body_id for arm in arms]
-            self.arms_ids += [arm.end_effector.body_id for arm in arms]
 
     def convey(self):
         contact_points = self.p_simulation.getContactPoints(bodyA=self.id)

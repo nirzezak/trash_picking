@@ -333,37 +333,38 @@ class UR5:
         self.print_ticks_stat = False
         UR5.next_available_color = (UR5.next_available_color + 1)\
             % len(UR5.colors)
-        if training:
-            self.body_id = self.p_simulation.loadURDF('assets/ur5/ur5_training.urdf',
-                                      self.pose[0],
-                                      self.pose[1],
-                                      flags=p.URDF_USE_SELF_COLLISION)
-            self.end_effector = None
-            self.p_simulation.changeVisualShape(
-                self.body_id,
-                UR5.EEF_LINK_INDEX,
-                textureUniqueId=-1,
-                rgbaColor=(
-                    self.color[0],
-                    self.color[1],
-                    self.color[2], 0.5))
-        else:
-            self.body_id = self.p_simulation.loadURDF('assets/ur5/ur5.urdf',
-                                      self.pose[0],
-                                      self.pose[1],
-                                      flags=p.URDF_USE_SELF_COLLISION)
-            self.end_effector = Robotiq2F85(p_simulation=self.p_simulation, ur5=self,
-                                            color=self.color)
+        self.body_id = self.p_simulation.loadURDF('../urdf/ur5_robotiq_85.urdf',
+                                                  self.pose[0],
+                                                  self.pose[1],
+                                                  flags=p.URDF_USE_SELF_COLLISION)
+
+        # if training:
+        #     self.body_id = self.p_simulation.loadURDF('assets/ur5/ur5_training.urdf',
+        #                               self.pose[0],
+        #                               self.pose[1],
+        #                               flags=p.URDF_USE_SELF_COLLISION)
+        #     self.end_effector = None
+        #     self.p_simulation.changeVisualShape(
+        #         self.body_id,
+        #         UR5.EEF_LINK_INDEX,
+        #         textureUniqueId=-1,
+        #         rgbaColor=(
+        #             self.color[0],
+        #             self.color[1],
+        #             self.color[2], 0.5))
+        # else:
+        #     self.body_id = self.p_simulation.loadURDF('assets/ur5/ur5.urdf',
+        #                               self.pose[0],
+        #                               self.pose[1],
+        #                               flags=p.URDF_USE_SELF_COLLISION)
+        #     self.end_effector = Robotiq2F85(p_simulation=self.p_simulation, ur5=self,
+        #                                     color=self.color)
         # Get revolute joint indices of robot (skip fixed joints)
         robot_joint_info = [self.p_simulation.getJointInfo(self.body_id, i)
                             for i in range(self.p_simulation.getNumJoints(self.body_id))]
-        self._robot_joint_indices = [
-            x[0] for x in robot_joint_info if x[2] == p.JOINT_REVOLUTE]
 
-        self._robot_joint_lower_limits = [
-            x[8] for x in robot_joint_info if x[2] == p.JOINT_REVOLUTE]
-        self._robot_joint_upper_limits = [
-            x[9] for x in robot_joint_info if x[2] == p.JOINT_REVOLUTE]
+        # TODO: ARM
+        self._robot_joint_indices = [1, 2, 3, 4, 5, 6]
 
         self.home_config = [-np.pi, -np.pi / 2,
                             np.pi / 2, -np.pi / 2,
@@ -391,6 +392,8 @@ class UR5:
         self.current_tick = 0
         self.start_tick = 0
         self.first_config = False
+        self.prev_config = None
+        self.prev_config_no_change_count = 0
 
     def update_closest_points(self, obstacles_ids=None):
         # if type(obstacles_ids) is list:
@@ -400,8 +403,8 @@ class UR5:
             others_id = [0] + obstacles_ids
         else:
             others_id = [self.p_simulation.getBodyUniqueId(i)
-                        for i in range(self.p_simulation.getNumBodies())
-                        if self.p_simulation.getBodyUniqueId(i) != self.body_id]
+                         for i in range(self.p_simulation.getNumBodies())
+                         if self.p_simulation.getBodyUniqueId(i) != self.body_id]
                     
         self.closest_points_to_others = [
             sorted(list(self.p_simulation.getClosestPoints(
@@ -475,8 +478,9 @@ class UR5:
         self.enabled = True
 
     def step(self):
-        if self.end_effector is not None:
-            self.end_effector.step()
+        # TODO: ARM
+        # if self.end_effector is not None:
+        #     self.end_effector.step()
         if self.subtarget_joint_actions:
             control_joints(
                 self.body_id,
@@ -533,7 +537,16 @@ class UR5:
             if self.print_ticks_stat:
                 self.ticks_for_curr_conf_move += 1
 
-            if self.first_config or all([np.abs(current_joint_state[i] - current_path[0][i]) < 1e-2 for i in range(len(self._robot_joint_indices))]):
+            if self.prev_config:
+                prev_conf_diff = [np.abs(current_joint_state[i] - self.prev_config[i]) < 1e-3 for i in range(len(self._robot_joint_indices))]
+                if all(prev_conf_diff):
+                    self.prev_config_no_change_count += 1
+                else:
+                    self.prev_config_no_change_count = 0
+            self.prev_config = current_joint_state
+
+            if self.first_config or all([np.abs(current_joint_state[i] - current_path[0][i]) < 1e-2 for i in range(len(self._robot_joint_indices))]) \
+                    or self.prev_config_no_change_count == 20:
                 if not self.first_config:
                     # Reached target configuration
                     if self.print_ticks_stat:
@@ -570,44 +583,56 @@ class UR5:
 
         if self.state == ArmState.PICKING_TRASH:
             # Check if gripper picked trash
-            if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
+            # TODO: ARM
+            if self.current_tick - self.start_tick > 250:
+            # if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
                 self.state = ArmState.MOVING_TO_BIN
+                self.prev_config = None
+                self.prev_config_no_change_count = 0
 
         if self.state == ArmState.RELEASING_TRASH:
-            if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
+            # TODO: ARM
+            if self.current_tick - self.start_tick > 250:
+            # if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
                 self.state = ArmState.IDLE
                 self.stop_gripper()
                 self.end_task()
 
     def close_gripper(self):
-        if self.end_effector is not None:
-            self.p_simulation.setJointMotorControl2(
-                self.end_effector.body_id,
-                1,
-                self.p_simulation.VELOCITY_CONTROL,
-                targetVelocity=5,
-                force=10000
-            )
+        # TODO: ARM
+        pass
+        # if self.end_effector is not None:
+        #     self.p_simulation.setJointMotorControl2(
+        #         self.end_effector.body_id,
+        #         1,
+        #         self.p_simulation.VELOCITY_CONTROL,
+        #         targetVelocity=5,
+        #         force=10000
+        #     )
 
     def open_gripper(self):
-        if self.end_effector is not None:
-            self.p_simulation.setJointMotorControl2(
-                self.end_effector.body_id,
-                1,
-                self.p_simulation.VELOCITY_CONTROL,
-                targetVelocity=-5,
-                force=10000
-            )
+        # TODO: ARM
+        pass
+        # if self.end_effector is not None:
+        #     self.p_simulation.setJointMotorControl2(
+        #         self.end_effector.body_id,
+        #         1,
+        #         self.p_simulation.VELOCITY_CONTROL,
+        #         targetVelocity=-5,
+        #         force=10000
+        #     )
 
     def stop_gripper(self):
-        if self.end_effector is not None:
-            self.p_simulation.setJointMotorControl2(
-                self.end_effector.body_id,
-                1,
-                self.p_simulation.VELOCITY_CONTROL,
-                targetVelocity=0,
-                force=10000
-            )
+        # TODO: ARM
+        pass
+        # if self.end_effector is not None:
+        #     self.p_simulation.setJointMotorControl2(
+        #         self.end_effector.body_id,
+        #         1,
+        #         self.p_simulation.VELOCITY_CONTROL,
+        #         targetVelocity=0,
+        #         force=10000
+        #     )
 
     def get_pose(self):
         return self.p_simulation.getBasePositionAndOrientation(self.body_id)
@@ -619,8 +644,9 @@ class UR5:
             self.pose[0],
             self.pose[1])
         self.workspace.origin = self.pose[0]
-        if self.end_effector is not None:
-            self.end_effector.update_eef_pose()
+        # TODO: ARM
+        # if self.end_effector is not None:
+        #     self.end_effector.update_eef_pose()
 
     def global_to_ur5_frame(self, position, rotation=None):
         self_pos, self_rot = self.p_simulation.getBasePositionAndOrientation(self.body_id)
@@ -633,12 +659,16 @@ class UR5:
         return ur5_frame_pos, ur5_frame_rot
 
     def on_touch_target(self):
-        if self.end_effector is not None:
-            self.end_effector.touched()
+        # TODO: ARM
+        pass
+        # if self.end_effector is not None:
+        #     self.end_effector.touched()
 
     def on_untouch_target(self):
-        if self.end_effector is not None:
-            self.end_effector.normal()
+        # TODO: ARM
+        pass
+        # if self.end_effector is not None:
+        #     self.end_effector.normal()
 
     def get_link_global_positions(self):
         linkstates = [self.p_simulation.getLinkState(
@@ -731,5 +761,6 @@ class UR5:
             self.GROUP_INDEX['arm'],
             joint_values)
         self.control_arm_joints(joint_values=joint_values)
-        if self.end_effector is not None:
-            self.end_effector.update_eef_pose()
+        # TODO: ARM
+        # if self.end_effector is not None:
+        #     self.end_effector.update_eef_pose()

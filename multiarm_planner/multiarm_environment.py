@@ -149,8 +149,9 @@ class MultiarmEnvironment:
         return path, num_iterations, time
 
     def get_configs_for_rrt(self, ur5_arms, goal_positions):
+        joints_count = len(list(ur5_arms)[0].GROUP_INDEX['arm'])
         start_configs = [ur5.get_arm_joint_values() for ur5 in ur5_arms]
-        goal_configs = [ur5.inverse_kinematics(*goal_position) for ur5, goal_position in zip(ur5_arms, goal_positions)]
+        goal_configs = [ur5.inverse_kinematics(*goal_position)[:joints_count] for ur5, goal_position in zip(ur5_arms, goal_positions)]
         ur5_poses = [ur5.get_pose() for ur5 in ur5_arms]
 
         return start_configs, goal_configs, ur5_poses
