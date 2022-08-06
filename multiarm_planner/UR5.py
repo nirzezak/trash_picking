@@ -590,7 +590,8 @@ class UR5:
             self.body_id,
             self.EEF_LINK_INDEX,
             position,
-            orientation)
+            orientation,
+            max_num_iterations=50)
 
     def forward_kinematics(self, joint_values):
         return forward_kinematics(
