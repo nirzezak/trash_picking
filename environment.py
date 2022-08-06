@@ -25,7 +25,7 @@ FRAME_RATE = 1 / 240.
 
 
 class Environment(object):
-    def __init__(self, connection_mode, conveyor_speed, set_pybullet_utils_p=False):
+    def __init__(self, connection_mode, conveyor_speed, arms_path, trash_bins_path, set_pybullet_utils_p=False):
         """"
         @param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
         @param set_pybullet_utils_p : if set to True,
@@ -40,6 +40,8 @@ class Environment(object):
 
         # Creating the environment
         self.plane = self.p_simulation.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
+        self.arms_path = arms_path
+        self.trash_bins_path = trash_bins_path
         self.bins = self._load_bins()
         self.arms = self._load_arms()
         self.arms_idx_pairs = ARMS_IDX_PAIRS
@@ -52,7 +54,7 @@ class Environment(object):
         """
         Load the bins from the 'trash_bins_locations.json' file.
         """
-        with open('trash_bins_locations.json', 'r') as f:
+        with open(self.trash_bins_path, 'r') as f:
             bins_data = json.load(f)
 
         bins = []
@@ -72,7 +74,7 @@ class Environment(object):
         """
         Load the arms from the 'arms_locations.json' file.
         """
-        with open('arms_locations.json', 'r') as f:
+        with open(self.arms_path, 'r') as f:
             arms_data = json.load(f)
 
         orientation = p.getQuaternionFromEuler([0, 0, 0])
