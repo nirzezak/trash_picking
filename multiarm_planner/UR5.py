@@ -25,7 +25,6 @@ from math import pi
 from threading import Thread
 from time import sleep
 import enum
-# from trash_generator import TaskState
 
 
 class ArmState(enum.Enum):
@@ -257,9 +256,8 @@ class UR5:
     joint_epsilon = 1e-2
     configuration_unchanged_epsilon = 1e-3
     max_unchanged_count = 30
-    joints_count = 6
+
     next_available_color = 0
-    workspace_radius = 0.85
     colors = [
         [0.4, 0, 0],
         [0, 0, 0.4],
@@ -268,46 +266,16 @@ class UR5:
         [0.4, 0.4, 0],
         [0, 0, 0],
     ]
-    LINK_COUNT = 10
-
-    GROUPS = {
-        'arm': ["shoulder_pan_joint",
-                "shoulder_lift_joint",
-                "elbow_joint",
-                "wrist_1_joint",
-                "wrist_2_joint",
-                "wrist_3_joint"],
-        'gripper': None
-    }
+    workspace_radius = 0.85
 
     GROUP_INDEX = {
-        'arm': [1, 2, 3, 4, 5, 6],
-        'gripper': None
-    }
-
-    INDEX_NAME_MAP = {
-        0: 'world_joint',
-        1: 'shoulder_pan_joint',
-        2: 'shoulder_lift_joint',
-        3: 'elbow_joint',
-        4: 'wrist_1_joint',
-        5: 'wrist_2_joint',
-        6: 'wrist_3_joint',
-        7: 'ee_fixed_joint',
-        8: 'wrist_3_link-tool0_fixed_joint',
-        9: 'base_link-base_fixed_joint'
+        'arm': [1, 2, 3, 4, 5, 6]
     }
 
     LOWER_LIMITS = [-2 * pi, -2 * pi, -pi, -2 * pi, -2 * pi, -2 * pi]
     UPPER_LIMITS = [2 * pi, 2 * pi, pi, 2 * pi, 2 * pi, 2 * pi]
-    MAX_VELOCITY = [3.15, 3.15, 3.15, 3.2, 3.2, 3.2]
-    MAX_FORCE = [150.0, 150.0, 150.0, 28.0, 28.0, 28.0]
 
-    HOME = [0, 0, 0, 0, 0, 0]
-    UP = [0, -1.5707, 0, -1.5707, 0, 0]
-    RESET = [0, -1, 1, 0.5, 1, 0]
     EEF_LINK_INDEX = 7
-
     UR5_MOVE_SPEED = 0.05
 
     def __init__(self,
@@ -321,7 +289,27 @@ class UR5:
         """
         @param p_simulation: pybullet simulation physics client
         """
+        # # # Our stuff # # #
         self.p_simulation = p_simulation
+
+        # Arm state machine
+        self.curr_task = None  # the current executed task
+        self.paths = None  # list of paths of the current executed task
+        self.state = ArmState.IDLE
+        self.current_tick = 0
+        self.start_tick = 0
+        self.first_config = False
+
+        # Detect getting stuck
+        self.prev_joint_state = None
+        self.no_change_joint_state_count = 0
+
+        # Debug print: calculate how many ticks each conf took
+        self.print_ticks_stat = False
+        self.ticks_for_curr_conf_move = 0
+        self.ticks_stat = None
+
+        # # # Arm Pybullet init # # #
         self.velocity = velocity
         self.acceleration = acceleration
         self.pose = pose
@@ -330,49 +318,23 @@ class UR5:
         self.workspace = HemisphereWorkspace(
             radius=UR5.workspace_radius,
             origin=self.pose[0])
-        self.subtarget_joint_actions = False
         self.color = UR5.colors[UR5.next_available_color]
-        self.print_ticks_stat = False
         UR5.next_available_color = (UR5.next_available_color + 1)\
             % len(UR5.colors)
-        if training:
-            self.body_id = self.p_simulation.loadURDF('assets/ur5/ur5_training.urdf',
-                                      self.pose[0],
-                                      self.pose[1],
-                                      flags=p.URDF_USE_SELF_COLLISION)
-            self.end_effector = None
-            self.p_simulation.changeVisualShape(
-                self.body_id,
-                UR5.EEF_LINK_INDEX,
-                textureUniqueId=-1,
-                rgbaColor=(
-                    self.color[0],
-                    self.color[1],
-                    self.color[2], 0.5))
-        else:
-            self.body_id = self.p_simulation.loadURDF('assets/ur5/ur5.urdf',
-                                      self.pose[0],
-                                      self.pose[1],
-                                      flags=p.URDF_USE_SELF_COLLISION)
-            self.end_effector = Robotiq2F85(p_simulation=self.p_simulation, ur5=self,
-                                            color=self.color)
+        self.body_id = self.p_simulation.loadURDF('assets/ur5/ur5.urdf',
+                                                  self.pose[0],
+                                                  self.pose[1],
+                                                  flags=p.URDF_USE_SELF_COLLISION)
+        self.end_effector = Robotiq2F85(p_simulation=self.p_simulation, ur5=self,
+                                        color=self.color)
+
         # Get revolute joint indices of robot (skip fixed joints)
         robot_joint_info = [self.p_simulation.getJointInfo(self.body_id, i)
                             for i in range(self.p_simulation.getNumJoints(self.body_id))]
         self._robot_joint_indices = [
             x[0] for x in robot_joint_info if x[2] == p.JOINT_REVOLUTE]
 
-        self._robot_joint_lower_limits = [
-            x[8] for x in robot_joint_info if x[2] == p.JOINT_REVOLUTE]
-        self._robot_joint_upper_limits = [
-            x[9] for x in robot_joint_info if x[2] == p.JOINT_REVOLUTE]
-
-        self.home_config = [-np.pi, -np.pi / 2,
-                            np.pi / 2, -np.pi / 2,
-                            -np.pi / 2, 0] if home_config is None\
-            else home_config
-
-        # for motion planning
+        # # # For motion planning # # #
         self.arm_difference_fn = get_difference_fn(
             self.body_id, self.GROUP_INDEX['arm'])
         self.arm_distance_fn = get_distance_fn(
@@ -387,107 +349,7 @@ class UR5:
         self.closest_points_to_others = []
         self.closest_points_to_self = []
         self.max_distance_from_others = 0.5
-        self.curr_task = None  # the current executed task
-        self.paths = None  # list of paths of the current executed task
-        self.state = ArmState.IDLE
-        self.current_tick = 0
-        self.start_tick = 0
-        self.first_config = False
-        self.prev_joint_state = None
-        self.no_change_joint_state_count = 0
-
-    def update_closest_points(self, obstacles_ids=None):
-        # if type(obstacles_ids) is list:
-        #     others_id = obstacles_ids
-        if obstacles_ids:
-            # Add the plane to the list
-            others_id = [0] + obstacles_ids
-        else:
-            others_id = [self.p_simulation.getBodyUniqueId(i)
-                        for i in range(self.p_simulation.getNumBodies())
-                        if self.p_simulation.getBodyUniqueId(i) != self.body_id]
-                    
-        self.closest_points_to_others = [
-            sorted(list(self.p_simulation.getClosestPoints(
-                bodyA=self.body_id, bodyB=other_id,
-                distance=self.max_distance_from_others)),
-                key=lambda contact_points: contact_points[8])
-            if other_id != 0 else []
-            for other_id in others_id]
-        self.closest_points_to_self = [
-            self.p_simulation.getClosestPoints(
-                bodyA=self.body_id, bodyB=self.body_id,
-                distance=0,
-                linkIndexA=link1, linkIndexB=link2)
-            for link1, link2 in self.link_pairs]
-
-    def set_config_and_check_collision(self, q):
-        self.set_arm_joints(q)
-        return self.check_collision()
-
-    def check_collision(self, collision_distance=0.0, obstacles_ids=None):
-        self.update_closest_points(obstacles_ids=obstacles_ids)
-        # Collisions with others
-        for i, closest_points_to_other in enumerate(
-                self.closest_points_to_others):
-            if i == 0:
-                # Treat plane specially
-                for point in self.p_simulation.getClosestPoints(
-                        bodyA=self.body_id, bodyB=0,
-                        distance=0.0):
-                    if point[8] < collision_distance:
-                        self.prev_collided_with = point
-                    return True
-            else:
-                # Check whether closest point's distance is
-                # less than collision distance
-                for point in closest_points_to_other:
-                    if point[8] < collision_distance:
-                        self.prev_collided_with = point
-                        return True
-        # Self Collision
-        for closest_points_to_self_link in self.closest_points_to_self:
-            for point in closest_points_to_self_link:
-                if len(point) > 0:
-                    self.prev_collided_with = point
-                    return True
         self.prev_collided_with = None
-        return False
-
-    def calc_next_subtarget_joints(self):
-        current_joints = self.get_arm_joint_values()
-        if type(self.target_joint_values) != np.ndarray:
-            self.target_joint_values = np.array(self.target_joint_values)
-        subtarget_joint_values = self.target_joint_values - current_joints
-        dt = 1.0 / 240.0
-        dj = dt * self.velocity
-        max_j = max(abs(subtarget_joint_values))
-        if max_j < dj:
-            return subtarget_joint_values
-        subtarget_joint_values = subtarget_joint_values * dj / max_j
-        return subtarget_joint_values + current_joints
-
-    def disable(self, idx=0):
-        self.enabled = False
-        # self.set_pose([
-        #     [idx, 20, 0],
-        #     [0.0, 0.0, 0.0, 1.0]])
-        # self.reset()
-        # self.step()
-
-    def enable(self):
-        self.enabled = True
-
-    def step(self):
-        if self.end_effector is not None:
-            self.end_effector.step()
-        if self.subtarget_joint_actions:
-            control_joints(
-                self.body_id,
-                self.GROUP_INDEX['arm'],
-                self.calc_next_subtarget_joints(),
-                velocity=self.velocity,
-                acceleration=self.acceleration)
 
     def start_task(self, task: Task, print_ticks_stat=False):
         print('Arm starting task!')
@@ -520,84 +382,158 @@ class UR5:
                 print(f'{k}: {v}')
 
     def ur5_step(self):
-        if self.state == ArmState.IDLE:
-            self.current_tick = 0
-            return
-
-        path_completed = False
-        current_joint_state = [self.p_simulation.getJointState(self.body_id, i)[0] for i in self._robot_joint_indices]
         self.current_tick += 1
+        if self.state == ArmState.IDLE:
+            self._state_machine_idle()
+        elif self.state == ArmState.MOVING_TO_TRASH or self.state == ArmState.MOVING_TO_BIN:
+            self._state_machine_moving()
+        elif self.state == ArmState.PICKING_TRASH:
+            self._state_machine_picking_trash()
+        elif self.state == ArmState.RELEASING_TRASH:
+            self._state_machine_releasing_trash()
 
-        if self.state == ArmState.MOVING_TO_TRASH or self.state == ArmState.MOVING_TO_BIN:
-            if len(self.paths) == 0:
-                raise InvalidArmState(f'No path found for state: {self.state}')
+    def _state_machine_idle(self):
+        self.current_tick = 0
 
-            current_path = self.paths[0]
+    def _state_machine_moving(self):
+        if len(self.paths) == 0:
+            raise InvalidArmState(f'No path found for state: {self.state}')
 
-            if self.prev_joint_state is not None:
-                diff_in_states = [
-                    np.abs(current_joint_state[i] - self.prev_joint_state[i])
-                    for i in range(len(self._robot_joint_indices))
-                ]
-                if all([x < self.configuration_unchanged_epsilon for x in diff_in_states]):
-                    self.no_change_joint_state_count += 1
-                else:
-                    self.no_change_joint_state_count = 0
+        current_path = self.paths[0]
+        current_joint_state = [self.p_simulation.getJointState(self.body_id, i)[0] for i in self._robot_joint_indices]
 
-            self.prev_joint_state = current_joint_state
+        self._calc_prev_conf_diff(current_joint_state)
 
-            if self.print_ticks_stat:
-                self.ticks_for_curr_conf_move += 1
+        if self.print_ticks_stat:
+            self.ticks_for_curr_conf_move += 1
 
-            if self.first_config or all([np.abs(current_joint_state[i] - current_path[0][i]) < self.joint_epsilon for i in range(len(self._robot_joint_indices))])\
-                    or self.no_change_joint_state_count == self.max_unchanged_count:
-                if not self.first_config:
-                    # Reached target configuration
-                    if self.print_ticks_stat:
-                        self.ticks_stat[f'{self.state.name} #ticks per conf'].append(self.ticks_for_curr_conf_move)
-                        self.ticks_for_curr_conf_move = 0
-                    current_path.pop(0)
-
+        if self.first_config or \
+                self._are_configurations_close(current_joint_state, current_path[0], self.joint_epsilon) or \
+                self.no_change_joint_state_count == self.max_unchanged_count:
+            if not self.first_config:
+                # Reached target configuration
+                if self.print_ticks_stat:
+                    self.ticks_stat[f'{self.state.name} #ticks per conf'].append(self.ticks_for_curr_conf_move)
+                    self.ticks_for_curr_conf_move = 0
+                current_path.pop(0)
+            else:
                 self.first_config = False
-                if len(current_path) > 0:
-                    # Move to next configuration
-                    next_target_config = current_path[0]
-                    self.p_simulation.setJointMotorControlArray(
-                        self.body_id, self._robot_joint_indices,
-                        self.p_simulation.POSITION_CONTROL, next_target_config,
-                        positionGains=type(self).UR5_MOVE_SPEED * np.ones(len(self._robot_joint_indices))
-                    )
 
-                else:
-                    path_completed = True
-                    self.paths.pop(0)
+            if len(current_path) > 0:
+                # Move to next configuration
+                next_target_config = current_path[0]
+                self.p_simulation.setJointMotorControlArray(
+                    self.body_id, self._robot_joint_indices,
+                    self.p_simulation.POSITION_CONTROL, next_target_config,
+                    positionGains=type(self).UR5_MOVE_SPEED * np.ones(len(self._robot_joint_indices))
+                )
+            else:
+                self.paths.pop(0)
+                self.start_tick = self.current_tick
 
-        if path_completed:
-            self.start_tick = self.current_tick
+                if self.state == ArmState.MOVING_TO_TRASH:
+                    # Finished moving to trash - now pick it up
+                    self.state = ArmState.PICKING_TRASH
+                    self.close_gripper()
+                elif self.state == ArmState.MOVING_TO_BIN:
+                    # Finished moving to bin - drop trash in bin
+                    self.state = ArmState.RELEASING_TRASH
+                    self.open_gripper()
 
-            if self.state == ArmState.MOVING_TO_TRASH:
-                # Finished moving to trash - now pick it up
-                self.state = ArmState.PICKING_TRASH
-                self.close_gripper()
+    def _state_machine_picking_trash(self):
+        # Check if gripper picked trash
+        self.no_change_joint_state_count = 0
+        if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
+            self.state = ArmState.MOVING_TO_BIN
 
-            elif self.state == ArmState.MOVING_TO_BIN:
-                # Finished moving to bin - drop trash in bin
-                self.state = ArmState.RELEASING_TRASH
-                self.open_gripper()
-
-        if self.state == ArmState.PICKING_TRASH:
-            # Check if gripper picked trash
+    def _state_machine_releasing_trash(self):
+        if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
             self.no_change_joint_state_count = 0
-            if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
-                self.state = ArmState.MOVING_TO_BIN
+            self.prev_joint_state = None
+            self.state = ArmState.IDLE
+            self.stop_gripper()
+            self.end_task()
 
-        if self.state == ArmState.RELEASING_TRASH:
-            if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
+    def _calc_prev_conf_diff(self, current_joint_state):
+        if self.prev_joint_state is not None:
+            if self._are_configurations_close(current_joint_state, self.prev_joint_state,
+                                              self.configuration_unchanged_epsilon):
+                self.no_change_joint_state_count += 1
+            else:
                 self.no_change_joint_state_count = 0
-                self.prev_joint_state = None
-                self.state = ArmState.IDLE
-                self.stop_gripper()
-                self.end_task()
+
+        self.prev_joint_state = current_joint_state
+
+    def _are_configurations_close(self, conf1, conf2, epsilon):
+        diff_in_states = [
+            np.abs(conf1[i] - conf2[i]) for i in range(len(self._robot_joint_indices))
+        ]
+        closeness = [x < epsilon for x in diff_in_states]
+        return all(closeness)
+
+    def update_closest_points(self, obstacles_ids=None):
+        # if type(obstacles_ids) is list:
+        #     others_id = obstacles_ids
+        if obstacles_ids:
+            # Add the plane to the list
+            others_id = [0] + obstacles_ids
+        else:
+            others_id = [self.p_simulation.getBodyUniqueId(i)
+                        for i in range(self.p_simulation.getNumBodies())
+                        if self.p_simulation.getBodyUniqueId(i) != self.body_id]
+                    
+        self.closest_points_to_others = [
+            sorted(list(self.p_simulation.getClosestPoints(
+                bodyA=self.body_id, bodyB=other_id,
+                distance=self.max_distance_from_others)),
+                key=lambda contact_points: contact_points[8])
+            if other_id != 0 else []
+            for other_id in others_id]
+        self.closest_points_to_self = [
+            self.p_simulation.getClosestPoints(
+                bodyA=self.body_id, bodyB=self.body_id,
+                distance=0,
+                linkIndexA=link1, linkIndexB=link2)
+            for link1, link2 in self.link_pairs]
+
+    def check_collision(self, collision_distance=0.0, obstacles_ids=None):
+        self.update_closest_points(obstacles_ids=obstacles_ids)
+        # Collisions with others
+        for i, closest_points_to_other in enumerate(
+                self.closest_points_to_others):
+            if i == 0:
+                # Treat plane specially
+                for point in self.p_simulation.getClosestPoints(
+                        bodyA=self.body_id, bodyB=0,
+                        distance=0.0):
+                    if point[8] < collision_distance:
+                        self.prev_collided_with = point
+                    return True
+            else:
+                # Check whether closest point's distance is
+                # less than collision distance
+                for point in closest_points_to_other:
+                    if point[8] < collision_distance:
+                        self.prev_collided_with = point
+                        return True
+        # Self Collision
+        for closest_points_to_self_link in self.closest_points_to_self:
+            for point in closest_points_to_self_link:
+                if len(point) > 0:
+                    self.prev_collided_with = point
+                    return True
+        self.prev_collided_with = None
+        return False
+
+    def disable(self, idx=0):
+        self.enabled = False
+
+    def enable(self):
+        self.enabled = True
+
+    def step(self):
+        if self.end_effector is not None:
+            self.end_effector.step()
 
     def close_gripper(self):
         if self.end_effector is not None:
@@ -642,53 +578,12 @@ class UR5:
         if self.end_effector is not None:
             self.end_effector.update_eef_pose()
 
-    def global_to_ur5_frame(self, position, rotation=None):
-        self_pos, self_rot = self.p_simulation.getBasePositionAndOrientation(self.body_id)
-        invert_self_pos, invert_self_rot = self.p_simulation.invertTransform(
-            self_pos, self_rot)
-        ur5_frame_pos, ur5_frame_rot = self.p_simulation.multiplyTransforms(
-            invert_self_pos, invert_self_rot,
-            position, invert_self_rot if rotation is None else rotation
-        )
-        return ur5_frame_pos, ur5_frame_rot
-
-    def on_touch_target(self):
-        if self.end_effector is not None:
-            self.end_effector.touched()
-
-    def on_untouch_target(self):
-        if self.end_effector is not None:
-            self.end_effector.normal()
-
-    def get_link_global_positions(self):
-        linkstates = [self.p_simulation.getLinkState(
-            self.body_id, link_id, computeForwardKinematics=True)
-            for link_id in range(UR5.LINK_COUNT)]
-        link_world_positions = [
-            world_pos for
-            world_pos, world_rot, _, _, _, _, in linkstates
-        ]
-        return link_world_positions
-
     def get_arm_joint_values(self):
         return np.array([JointState(*self.p_simulation.getJointState(self.body_id, joint)).jointPosition for joint in self.GROUP_INDEX['arm']])
-
-    def reset(self):
-        self.set_arm_joints(self.home_config)
 
     def get_end_effector_pose(self, link=None):
         link = link if link is not None else self.EEF_LINK_INDEX
         return get_link_pose(self.body_id, link)
-
-    def violates_limits(self):
-        return violates_limits(
-            self.body_id,
-            self.GROUP_INDEX['arm'],
-            self.get_arm_joint_values())
-
-    def set_target_end_eff_pos(self, pos, orientation=None):
-        self.set_arm_joints(
-            self.inverse_kinematics(position=pos, orientation=orientation))
 
     def inverse_kinematics(self, position, orientation=None):
         return inverse_kinematics(
@@ -707,43 +602,18 @@ class UR5:
     def control_arm_joints(self, joint_values, velocity=None):
         velocity = self.velocity if velocity is None else velocity
         self.target_joint_values = joint_values
-        if not self.subtarget_joint_actions:
-            control_joints(
-                self.body_id,
-                self.GROUP_INDEX['arm'],
-                self.target_joint_values,
-                velocity=velocity,
-                acceleration=self.acceleration)
-
-    def control_arm_joints_delta(self, delta_joint_values, velocity=None):
-        self.control_arm_joints(
-            self.get_arm_joint_values() + delta_joint_values,
-            velocity=velocity)
-
-    def control_arm_joints_norm(self, normalized_joint_values, velocity=None):
-        self.control_arm_joints(
-            self.unnormalize_joint_values(normalized_joint_values),
-            velocity=velocity)
+        control_joints(
+            self.body_id,
+            self.GROUP_INDEX['arm'],
+            self.target_joint_values,
+            velocity=velocity,
+            acceleration=self.acceleration)
 
     # NOTE: normalization is between -1 and 1
     @staticmethod
     def normalize_joint_values(joint_values):
         return (joint_values - np.array(UR5.LOWER_LIMITS)) /\
             (np.array(UR5.UPPER_LIMITS) - np.array(UR5.LOWER_LIMITS)) * 2 - 1
-
-    @staticmethod
-    def unnormalize_joint_values(normalized_joint_values):
-        return (0.5 * normalized_joint_values + 0.5) *\
-            (np.array(UR5.UPPER_LIMITS) - np.array(UR5.LOWER_LIMITS)) +\
-            np.array(UR5.LOWER_LIMITS)
-
-    def at_target_joints(self):
-        actual_joint_state = self.get_arm_joint_values()
-        return all(
-            [np.abs(actual_joint_state[joint_id] -
-                    self.target_joint_values[joint_id])
-                < UR5.joint_epsilon
-                for joint_id in range(len(actual_joint_state))])
 
     def set_arm_joints(self, joint_values):
         set_joint_positions(
