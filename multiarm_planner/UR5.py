@@ -254,7 +254,9 @@ class InvalidArmState(Exception):
 
 
 class UR5:
-    joint_epsilon = 0.01
+    joint_epsilon = 1e-2
+    configuration_unchanged_epsilon = 1e-3
+    max_unchanged_count = 30
     joints_count = 6
     next_available_color = 0
     workspace_radius = 0.85
@@ -391,6 +393,8 @@ class UR5:
         self.current_tick = 0
         self.start_tick = 0
         self.first_config = False
+        self.prev_joint_state = None
+        self.no_change_joint_state_count = 0
 
     def update_closest_points(self, obstacles_ids=None):
         # if type(obstacles_ids) is list:
@@ -530,10 +534,23 @@ class UR5:
 
             current_path = self.paths[0]
 
+            if self.prev_joint_state is not None:
+                diff_in_states = [
+                    np.abs(current_joint_state[i] - self.prev_joint_state[i])
+                    for i in range(len(self._robot_joint_indices))
+                ]
+                if all([x < self.configuration_unchanged_epsilon for x in diff_in_states]):
+                    self.no_change_joint_state_count += 1
+                else:
+                    self.no_change_joint_state_count = 0
+
+            self.prev_joint_state = current_joint_state
+
             if self.print_ticks_stat:
                 self.ticks_for_curr_conf_move += 1
 
-            if self.first_config or all([np.abs(current_joint_state[i] - current_path[0][i]) < 1e-2 for i in range(len(self._robot_joint_indices))]):
+            if self.first_config or all([np.abs(current_joint_state[i] - current_path[0][i]) < self.joint_epsilon for i in range(len(self._robot_joint_indices))])\
+                    or self.no_change_joint_state_count == self.max_unchanged_count:
                 if not self.first_config:
                     # Reached target configuration
                     if self.print_ticks_stat:
@@ -570,11 +587,14 @@ class UR5:
 
         if self.state == ArmState.PICKING_TRASH:
             # Check if gripper picked trash
+            self.no_change_joint_state_count = 0
             if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
                 self.state = ArmState.MOVING_TO_BIN
 
         if self.state == ArmState.RELEASING_TRASH:
             if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
+                self.no_change_joint_state_count = 0
+                self.prev_joint_state = None
                 self.state = ArmState.IDLE
                 self.stop_gripper()
                 self.end_task()
