@@ -32,6 +32,7 @@ class Environment(object):
         p variable of pybullet_utils (multiarm_planner.rrt) will be set to be self.p_simulation
         """
         self.p_simulation = bc.BulletClient(connection_mode=connection_mode)
+        self.p_simulation.configureDebugVisualizer(self.p_simulation.COV_ENABLE_GUI, 0)
 
         if set_pybullet_utils_p:
             pybullet_utils.p = self.p_simulation
