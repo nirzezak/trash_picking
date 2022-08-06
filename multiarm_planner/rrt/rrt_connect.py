@@ -2,7 +2,7 @@
 # This file is partly borrowed and adapted from 
 # https://github.com/caelan/motion-planners
 # ------------------------------------------------
-
+import logging
 
 from multiarm_planner.profile_utils import timefunc
 from .smoothing import smooth_path
@@ -98,7 +98,7 @@ def rrt_connect(q1,
                     pickle.dump(edges, f)
             return configs(path1[:-1] + path2[::-1]), iteration, run_time
         if iteration % 100 == 0:
-            print(f"Ran {iteration} iterations of RRT-Connect")
+            logging.debug(f"Ran {iteration} iterations of RRT-Connect")
     return None, iteration, run_time
 
 
@@ -130,6 +130,7 @@ def birrt(start_conf,
     if path is not None:
         # This means the configuration is not interesting.
         return path, 0, 0
+    logging.info("Couldn't find direct path, trying RRT-Connect")
     path, num_iterations, time = rrt_connect(start_conf,
                                             goal_conf,
                                             distance,
@@ -143,5 +144,7 @@ def birrt(start_conf,
                                             greedy,
                                             timeout)
     if path is not None:
+        logging.info(f"Found path with RRT-Connect: Took {num_iterations} iterations")
         return smooth_path(path, extend, collision, iterations=smooth), num_iterations, time
+    logging.info("Couldn't find path with RRT-Connect")
     return None, iterations, time

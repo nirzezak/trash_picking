@@ -1,3 +1,4 @@
+import logging
 import time
 import pybullet as p
 import numpy as np
@@ -34,10 +35,12 @@ class BackgroundEnv(Environment):
 
         paths_to_trash = self.compute_path_to_trash(arms_idx, trash, start_configs)
         if paths_to_trash is None:
+            logging.info('path to trash not found')
             return None
         last_configs = split_arms_conf(paths_to_trash[-1], len(trash))
         paths_to_bins = self.compute_path_to_bin(arms_idx, bin_locations, last_configs)
         if paths_to_bins is None:
+            logging.info('path to bin not found')
             return None
         return paths_to_trash, paths_to_bins
 
