@@ -13,7 +13,7 @@ class TrashConfig(Enum):
     METAL_CAN = {
         'path': r'models/YcbMasterChefCan/model.urdf',
         'location': [-0.15, -2.5, 0.57],
-        'gripping_points': [[0, 0, 1]],
+        'gripping_points': [[-0.044, -0.35, -0.01]],
         'trash_type': trash_types.TrashTypes.ELECTRONIC
     }
     PAPER_BOX = {
