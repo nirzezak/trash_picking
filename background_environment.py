@@ -60,21 +60,16 @@ class BackgroundEnv(Environment):
         for arm_idx, trash_conf in zip(arms_idx, trash):
             # TODO: Fix this entire block of code because it is super specific
             trash = self.trash_generator.summon_trash(trash_conf)
-            trash_pos, orientation = self.p_simulation.getBasePositionAndOrientation(trash.get_id())
-            trash_pos = list(trash_pos)
+            grip_point = trash.get_curr_gripping_points()[0]
 
-            # First position above the trash (higher chance of not colliding)
-            trash_pos[2] += 0.7
-            trash_pos[1] += 0.025
-            trash_pos[0] += 0.1225
+            above_grip_point = grip_point.copy()
+            above_grip_point[2] += 0.15
 
-            end_pos = [trash_pos, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]  # This orientation is "from above", TODO- make this dynamic?
+            end_pos = [above_grip_point, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]  # This orientation is "from above", TODO- make this dynamic?
             arms_to_above_position_configs[self.arms[arm_idx]] = end_pos
 
             # Then hopefully find a path that only lowers the arm to pick up the trash
-            next_pos = trash_pos.copy()
-            next_pos[2] -= 0.5875
-            end_pos2 = [next_pos, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]
+            end_pos2 = [above_grip_point, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]
             arms_to_actual_goal_configs[self.arms[arm_idx]] = end_pos2
 
         path_to_above_position = self.arms_manager.birrt(arms_to_above_position_configs.keys(), arms_to_above_position_configs.values(),
