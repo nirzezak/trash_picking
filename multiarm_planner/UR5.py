@@ -234,18 +234,31 @@ class Robotiq2F85:
     def update_eef_pose(self):
         self.set_pose(self.ur5.get_end_effector_pose())
 
+    def check_collision(self, collision_distance=0.0):
+        others_id = [self.p_simulation.getBodyUniqueId(i)
+                     for i in range(self.p_simulation.getNumBodies())
+                     if self.p_simulation.getBodyUniqueId(i) != self.body_id]
 
-class Robotiq2F85Target(Robotiq2F85):
-    def __init__(self, pose, color):
-        self.color = color
-        self.replace_textures = True
-        self.body_id = self.p_simulation.loadURDF(
-            'assets/gripper/robotiq_2f_85_no_colliders.urdf',
-            pose[0],
-            pose[1],
-            useFixedBase=1)
-        self.set_pose(pose)
-        self.setup()
+        closest_points_to_others = []
+        for other_id in others_id:
+            if other_id == 0:
+                points = []
+            else:
+                points = self.p_simulation.getClosestPoints(bodyA=self.body_id, bodyB=other_id, distance=0.1)
+                points = sorted(points, key=lambda contact_point: contact_point[8])
+            closest_points_to_others.append(points)
+
+        for i, points in enumerate(closest_points_to_others):
+            if i == 0:
+                for point in self.p_simulation.getClosestPoints(bodyA=self.body_id, bodyB=0, distance=0.0):
+                    if point[8] < collision_distance:
+                        return True
+            else:
+                for point in points:
+                    if point[8] < collision_distance:
+                        return True
+
+        return False
 
 
 class InvalidArmState(Exception):
@@ -523,7 +536,7 @@ class UR5:
                     self.prev_collided_with = point
                     return True
         self.prev_collided_with = None
-        return False
+        return self.end_effector.check_collision(collision_distance)
 
     def disable(self, idx=0):
         self.enabled = False
