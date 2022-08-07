@@ -104,13 +104,37 @@ class BackgroundEnv(Environment):
         if no path found, return None.
         TODO - Right now the function assumes that we run this with only one arm
         """
+
+        above_poses = []
         end_poses = []
-        for bin_loc in bin_locations:
+        for arm_idx, bin_loc in zip(arms_idx, bin_locations):
             bin_loc = list(bin_loc)
             bin_loc[2] += 0.85
-            end_poses.append([bin_loc, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])])
-        return self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], end_poses, start_configs,
+
+            # TODO: Not sure if this is a good orientation, might have to play with the signs a bit
+            #   but it did seem to work better than the orientation for the trash
+            end_poses.append([bin_loc, p.getQuaternionFromEuler([0, np.pi / 2, -np.pi / 2])])
+
+            # The above pose should only be higher vertically
+            current_pose = self.arms[arm_idx].get_end_effector_pose()
+            current_pose[0][2] = bin_loc[2]
+            above_poses.append(current_pose)
+
+        # Attempt to first pick up the trash higher only vertically
+        path_to_above = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], above_poses, start_configs, max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
+        if path_to_above is None:
+            return None
+
+        # get list of the arms configs when they reach the "above position"
+        above_pos_conf_per_arm = split_arms_conf(path_to_above[-1], len(arms_idx))
+
+        path_to_bin = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], end_poses, start_configs=above_pos_conf_per_arm,
                                        max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
+
+        if path_to_bin is None:
+            return None
+
+        return path_to_above + path_to_bin
 
     def sync_arm_positions(self, real_arms):
         """
