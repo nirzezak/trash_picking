@@ -19,7 +19,7 @@ def get_args() -> argparse.Namespace:
 
 def init_loggers(debug: bool):
     level = logging.DEBUG if debug else logging.INFO
-    log_format = '%(levelname)s: %(message)s'
+    log_format = '%(process)d:%(levelname)s: %(message)s'
     logging.basicConfig(filename='log.txt', filemode='w', level=level, format=log_format)
     root = logging.getLogger()
 
