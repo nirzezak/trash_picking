@@ -69,7 +69,7 @@ class BackgroundEnv(Environment):
             arms_to_above_position_configs[self.arms[arm_idx]] = end_pos
 
             # Then hopefully find a path that only lowers the arm to pick up the trash
-            end_pos2 = [above_grip_point, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]
+            end_pos2 = [grip_point, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]
             arms_to_actual_goal_configs[self.arms[arm_idx]] = end_pos2
 
         path_to_above_position = self.arms_manager.birrt(arms_to_above_position_configs.keys(), arms_to_above_position_configs.values(),
