@@ -2,7 +2,7 @@ import random
 from abc import ABC, abstractmethod
 
 import ticker
-from trash_configs import TrashConfig
+from configs.trash_configs import TrashConfig
 
 
 class SummonComponent(ABC):

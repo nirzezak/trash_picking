@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-import pybullet as p
 from typing import List, Dict, Tuple, Optional
 
 import ticker
@@ -36,7 +35,8 @@ class TaskManagerComponent(ABC):
 
 
 class AdvancedTaskManager(TaskManagerComponent):
-    def __init__(self, arms: List[UR5], arms_idx_pairs: List[List[int]], bins: List[Bin], trash_velocity: float):
+    def __init__(self, arms: List[UR5], arms_idx_pairs: List[List[int]], bins: List[Bin], trash_velocity: float,
+                 background_env: BackgroundEnv):
         """
         @param arms: A list of all of the available arms
         @param arms_idx_pairs: a list of arm pairs, each pair is represented as a list (length=2),
@@ -57,7 +57,7 @@ class AdvancedTaskManager(TaskManagerComponent):
         self.bins = bins
         self.trash_velocity = trash_velocity
 
-        self.background_env = BackgroundEnv(p.DIRECT)
+        self.background_env = background_env
 
         self.single_trash = []  # unassigned trash, that couldn't be paired yet
         self.arms_to_tasks: Dict[UR5, List[Task]] = {arm: [] for arm in self.arms}  # maps arms to a list of their current tasks, ordered by task.start_tick
@@ -441,11 +441,12 @@ class SimpleTaskManager(TaskManagerComponent):
     debugging of everything else.
     """
 
-    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float):
+    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env: BackgroundEnv):
         """
         @param arms: A list of all of the available arms
         @param bins: A list of all of the available bins
         @param trash_velocity: The velocity of the trash, we assume velocity
+        @param background_env: An initialized background environment instance
         only on the Y axis.
         axis 0 - x, axis 1 - y, axis 2 - z
         """
@@ -455,7 +456,7 @@ class SimpleTaskManager(TaskManagerComponent):
         self.bins = bins
         self.trash_velocity = trash_velocity
 
-        self.background_env = BackgroundEnv(p.DIRECT)
+        self.background_env = background_env
 
         self.single_trash = []
         self.arms_to_tasks = {arm: None for arm in self.arms}

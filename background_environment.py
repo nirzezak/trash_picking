@@ -1,3 +1,4 @@
+import logging
 import time
 import pybullet as p
 import numpy as np
@@ -8,11 +9,11 @@ MAX_ATTEMPTS_TO_FIND_PATH = 200
 
 
 class BackgroundEnv(Environment):
-    def __init__(self, connection_mode=p.DIRECT):
+    def __init__(self, connection_mode, arms_path, trash_bins_path):
         """"
         :param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
         """
-        super().__init__(connection_mode, conveyor_speed=0, set_pybullet_utils_p=True)
+        super().__init__(connection_mode, 0, arms_path, trash_bins_path, set_pybullet_utils_p=True)
 
     def compute_motion_plan(self, arms_idx, trash, bin_locations, start_configs, real_arms=None):
         """"
@@ -34,10 +35,12 @@ class BackgroundEnv(Environment):
 
         paths_to_trash = self.compute_path_to_trash(arms_idx, trash, start_configs)
         if paths_to_trash is None:
+            logging.info('path to trash not found')
             return None
         last_configs = split_arms_conf(paths_to_trash[-1], len(trash))
         paths_to_bins = self.compute_path_to_bin(arms_idx, bin_locations, last_configs)
         if paths_to_bins is None:
+            logging.info('path to bin not found')
             return None
         return paths_to_trash, paths_to_bins
 
@@ -57,21 +60,16 @@ class BackgroundEnv(Environment):
         for arm_idx, trash_conf in zip(arms_idx, trash):
             # TODO: Fix this entire block of code because it is super specific
             trash = self.trash_generator.summon_trash(trash_conf)
-            trash_pos, orientation = self.p_simulation.getBasePositionAndOrientation(trash.get_id())
-            trash_pos = list(trash_pos)
+            grip_point = trash.get_curr_gripping_points()[0]
 
-            # First position above the trash (higher chance of not colliding)
-            trash_pos[2] += 0.7
-            trash_pos[1] += 0.025
-            trash_pos[0] += 0.1225
+            above_grip_point = grip_point.copy()
+            above_grip_point[2] += 0.15
 
-            end_pos = [trash_pos, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]  # This orientation is "from above", TODO- make this dynamic?
+            end_pos = [above_grip_point, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]  # This orientation is "from above", TODO- make this dynamic?
             arms_to_above_position_configs[self.arms[arm_idx]] = end_pos
 
             # Then hopefully find a path that only lowers the arm to pick up the trash
-            next_pos = trash_pos.copy()
-            next_pos[2] -= 0.5875
-            end_pos2 = [next_pos, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]
+            end_pos2 = [above_grip_point, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]
             arms_to_actual_goal_configs[self.arms[arm_idx]] = end_pos2
 
         path_to_above_position = self.arms_manager.birrt(arms_to_above_position_configs.keys(), arms_to_above_position_configs.values(),
@@ -106,13 +104,37 @@ class BackgroundEnv(Environment):
         if no path found, return None.
         TODO - Right now the function assumes that we run this with only one arm
         """
+
+        above_poses = []
         end_poses = []
-        for bin_loc in bin_locations:
+        for arm_idx, bin_loc in zip(arms_idx, bin_locations):
             bin_loc = list(bin_loc)
             bin_loc[2] += 0.85
-            end_poses.append([bin_loc, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])])
-        return self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], end_poses, start_configs,
+
+            # TODO: Not sure if this is a good orientation, might have to play with the signs a bit
+            #   but it did seem to work better than the orientation for the trash
+            end_poses.append([bin_loc, p.getQuaternionFromEuler([0, np.pi / 2, -np.pi / 2])])
+
+            # The above pose should only be higher vertically
+            current_pose = self.arms[arm_idx].get_end_effector_pose()
+            current_pose[0][2] = bin_loc[2]
+            above_poses.append(current_pose)
+
+        # Attempt to first pick up the trash higher only vertically
+        path_to_above = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], above_poses, start_configs, max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
+        if path_to_above is None:
+            return None
+
+        # get list of the arms configs when they reach the "above position"
+        above_pos_conf_per_arm = split_arms_conf(path_to_above[-1], len(arms_idx))
+
+        path_to_bin = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], end_poses, start_configs=above_pos_conf_per_arm,
                                        max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
+
+        if path_to_bin is None:
+            return None
+
+        return path_to_above + path_to_bin
 
     def sync_arm_positions(self, real_arms):
         """
