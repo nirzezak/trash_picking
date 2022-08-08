@@ -5,7 +5,7 @@ import pybullet as p
 import environment
 import ticker
 from background_environment import BackgroundEnv
-from environment import Environment
+from environment import Environment, EnvironmentArgs
 from score import Score
 from summon_component import RandomSummonComponent, DeterministicSummonComponent, FixedAmountSummonComponent
 from task_manager import AdvancedTaskManager, SimpleTaskManager
@@ -13,15 +13,16 @@ from configs.trash_configs import TrashConfig
 
 
 class RealEnv(Environment):
-    def __init__(self, connection_mode, arms_path, trash_bins_path):
+    def __init__(self, env_args: EnvironmentArgs):
         """"
         :param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
         """
-        super().__init__(connection_mode, 0.075, arms_path, trash_bins_path)
+        super().__init__(env_args.connection_mode, 0.075, env_args.arms_path, env_args.trash_bins_path)
 
         # Manage the real environment: clocks, and scoreboard
-        back_connection_mode = p.DIRECT if connection_mode == p.GUI else p.GUI
-        background_env = BackgroundEnv(back_connection_mode, arms_path, trash_bins_path)
+        back_connection_mode = p.DIRECT if env_args.connection_mode == p.GUI else p.GUI
+        back_env_args = EnvironmentArgs(back_connection_mode, env_args.arms_path, env_args.trash_bins_path)
+        background_env = BackgroundEnv(back_env_args)
         self.task_manager = SimpleTaskManager(self.arms, self.bins, self.conveyor.speed, background_env)
         self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL)
         self.score = Score()

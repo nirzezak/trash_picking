@@ -5,6 +5,8 @@ import sys
 import real_environment
 import pybullet as p
 
+from environment import EnvironmentArgs
+
 
 def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Trash Picking Simulation')
@@ -34,6 +36,7 @@ if __name__ == '__main__':
     args = get_args()
     init_loggers(args.debug)
     connection_mode = p.DIRECT if args.back else p.GUI
-    env_gui = real_environment.RealEnv(connection_mode, args.arms, args.bins)
+    env_args = EnvironmentArgs(connection_mode, args.arms, args.bins)
+    env_gui = real_environment.RealEnv(env_args)
     while True:
         env_gui.step()

@@ -2,18 +2,18 @@ import logging
 import time
 import pybullet as p
 import numpy as np
-from environment import Environment
+from environment import Environment, EnvironmentArgs
 from multiarm_planner.multiarm_environment import split_arms_conf
 
 MAX_ATTEMPTS_TO_FIND_PATH = 200
 
 
 class BackgroundEnv(Environment):
-    def __init__(self, connection_mode, arms_path, trash_bins_path):
+    def __init__(self, env_args: EnvironmentArgs):
         """"
         :param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
         """
-        super().__init__(connection_mode, 0, arms_path, trash_bins_path, set_pybullet_utils_p=True)
+        super().__init__(env_args.connection_mode, 0, env_args.arms_path, env_args.trash_bins_path, set_pybullet_utils_p=True)
 
     def compute_motion_plan(self, arms_idx, trash, bin_locations, start_configs, real_arms=None):
         """"
