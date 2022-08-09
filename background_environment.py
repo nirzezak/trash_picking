@@ -133,6 +133,9 @@ class BackgroundEnv(Environment):
         # get list of the arms configs when they reach the "above position"
         above_pos_conf_per_arm = split_arms_conf(path_to_above[-1], len(arms_idx))
 
+        # Block of code for rotation arms
+        # TODO: This was experimental to help focus on trash pickup, but it turns out to work really well, so we should adopt
+        #   this method of turning around to drop trash in bin, but improve this code to actually work with the appropriate bins
         rotate_arm_1 = above_pos_conf_per_arm[0].copy()
         rotate_arm_2 = above_pos_conf_per_arm[1].copy()
 
@@ -146,9 +149,7 @@ class BackgroundEnv(Environment):
 
             rotation_confs.append(rotation1 + rotation2)
 
-        # rotate_arm_1[0] = 3
-        # rotate_arm_2[0] = 3
-
+        # TODO: Old code of moving to bin
         # path_to_bin = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], end_poses, start_configs=above_pos_conf_per_arm,
         #                                max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
 
@@ -159,8 +160,7 @@ class BackgroundEnv(Environment):
         # if path_to_bin is None:
         #     return None
 
-        # rotate_arm_1.extend(rotate_arm_2)
-        # return path_to_above + rotate_arm_1 + path_to_bin
+        # return path_to_above + path_to_bin
         return path_to_above + rotation_confs
 
     def sync_arm_positions(self, real_arms):
