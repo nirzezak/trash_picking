@@ -70,11 +70,11 @@ class MultiarmEnvironment:
                         obstacles=task.obstacles, rrt_only=rrt_only)
 
     def _birrt(self, ur5_arms, start_configs, goal_configs,
-              ur5_poses, target_eff_poses=None, obstacles=None, resolutions=0.1, timeout=300, rrt_only=False):
+              ur5_poses, target_eff_poses=None, obstacles=None, resolutions=0.1, timeout=10, rrt_only=False, collision_distance=None):
         self.setup_run(ur5_poses, start_configs, target_eff_poses, obstacles, specific_ur5s=ur5_arms)
 
         extend_fn = self.ur5_group.get_extend_fn(resolutions)
-        collision_fn = self.ur5_group.get_collision_fn()
+        collision_fn = self.ur5_group.get_collision_fn(collision_distance=collision_distance)
         start_conf = list(chain.from_iterable(start_configs))
         goal_conf = list(chain.from_iterable(goal_configs))
 
@@ -155,7 +155,7 @@ class MultiarmEnvironment:
 
         return start_configs, goal_configs, ur5_poses
 
-    def birrt(self, ur5_arms, goal_positions, start_configs=None, max_attempts=1):
+    def birrt(self, ur5_arms, goal_positions, start_configs=None, max_attempts=1, collision_distance=None):
         """"
         Returns a list of configurations for the arms to get to the goal_positions, or None if it couldn't find a path.
         @param max_attempts: number of attempts to find a path
@@ -166,7 +166,7 @@ class MultiarmEnvironment:
         path = None
         attempt_count = 1
         while path is None and attempt_count <= max_attempts:
-            path = self._birrt(ur5_arms, start_configs, goal_configs, current_poses)[0]
+            path = self._birrt(ur5_arms, start_configs, goal_configs, current_poses, collision_distance=collision_distance)[0]
             attempt_count += 1
         return path
 

@@ -66,3 +66,6 @@ class Trash(object):
         conf = self.trash_config.copy()
         conf['location'] = location
         return conf
+
+    def reset_friction(self):
+        self.p_simulation.changeDynamics(self.get_id(), -1, lateralFriction=0.8)

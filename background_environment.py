@@ -5,7 +5,7 @@ import numpy as np
 from environment import Environment
 from multiarm_planner.multiarm_environment import split_arms_conf
 
-MAX_ATTEMPTS_TO_FIND_PATH = 200
+MAX_ATTEMPTS_TO_FIND_PATH = 3
 
 
 class BackgroundEnv(Environment):
@@ -62,8 +62,13 @@ class BackgroundEnv(Environment):
             trash = self.trash_generator.summon_trash(trash_conf)
             grip_point = trash.get_curr_gripping_points()[0]
 
+            # TODO: Having the trash here hurts the probability of finding a path while having no real merit
+            #   since the entire path will take place without the trash being in this exact location.
+            #   Should remove the summoning altogether and just calculate the gripping points.
+            self.trash_generator.remove_trash()
+
             above_grip_point = grip_point.copy()
-            above_grip_point[2] += 0.15
+            above_grip_point[2] += 0.3
 
             end_pos = [above_grip_point, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]  # This orientation is "from above", TODO- make this dynamic?
             arms_to_above_position_configs[self.arms[arm_idx]] = end_pos
@@ -73,7 +78,7 @@ class BackgroundEnv(Environment):
             arms_to_actual_goal_configs[self.arms[arm_idx]] = end_pos2
 
         path_to_above_position = self.arms_manager.birrt(arms_to_above_position_configs.keys(), arms_to_above_position_configs.values(),
-                                                         start_configs=start_configs, max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
+                                                         start_configs=start_configs, max_attempts=MAX_ATTEMPTS_TO_FIND_PATH, collision_distance=0.15)
         if path_to_above_position is None:
             self.trash_generator.remove_trash()
             return None
@@ -128,13 +133,35 @@ class BackgroundEnv(Environment):
         # get list of the arms configs when they reach the "above position"
         above_pos_conf_per_arm = split_arms_conf(path_to_above[-1], len(arms_idx))
 
-        path_to_bin = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], end_poses, start_configs=above_pos_conf_per_arm,
-                                       max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
+        rotate_arm_1 = above_pos_conf_per_arm[0].copy()
+        rotate_arm_2 = above_pos_conf_per_arm[1].copy()
 
-        if path_to_bin is None:
-            return None
+        rotation_confs = []
+        for i, j in zip(np.linspace(rotate_arm_1[0], 3, num=100, endpoint=True), np.linspace(rotate_arm_2[0], 3, num=100, endpoint=True)):
+            rotation1 = rotate_arm_1.copy()
+            rotation1[0] = i
 
-        return path_to_above + path_to_bin
+            rotation2 = rotate_arm_2.copy()
+            rotation2[0] = j
+
+            rotation_confs.append(rotation1 + rotation2)
+
+        # rotate_arm_1[0] = 3
+        # rotate_arm_2[0] = 3
+
+        # path_to_bin = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], end_poses, start_configs=above_pos_conf_per_arm,
+        #                                max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
+
+        # path_to_bin = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], end_poses,
+        #                                       start_configs=(rotate_arm_1, rotate_arm_2),
+        #                                       max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
+        #
+        # if path_to_bin is None:
+        #     return None
+
+        # rotate_arm_1.extend(rotate_arm_2)
+        # return path_to_above + rotate_arm_1 + path_to_bin
+        return path_to_above + rotation_confs
 
     def sync_arm_positions(self, real_arms):
         """

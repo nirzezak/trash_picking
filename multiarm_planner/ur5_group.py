@@ -89,14 +89,17 @@ class UR5Group:
 
         return fn
 
-    def get_collision_fn(self, log=False):
+    def get_collision_fn(self, log=False, collision_distance=None):
+        collision_distance = self.collision_distance if collision_distance is None else collision_distance
+
         # Automatically check everything
         def collision_fn(q=None):
             if q is not None:
                 self.set_joint_positions(q)
             return any([c.check_collision(
-                collision_distance=self.collision_distance)
+                collision_distance=collision_distance)
                 for c in self.active_controllers])
+
         return collision_fn
 
     def forward_kinematics(self, q):
