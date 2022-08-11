@@ -148,9 +148,10 @@ class MultiarmEnvironment:
             self.demo_path(ur5_poses, start_configs, path)
         return path, num_iterations, time
 
-    def get_configs_for_rrt(self, ur5_arms, goal_positions):
-        start_configs = [ur5.get_arm_joint_values() for ur5 in ur5_arms]
+    def get_configs_for_rrt(self, ur5_arms, goal_positions, start_configs=None):
+        start_configs = [ur5.get_arm_joint_values() for ur5 in ur5_arms] if start_configs is None else start_configs
         goal_configs = [ur5.inverse_kinematics(*goal_position) for ur5, goal_position in zip(ur5_arms, goal_positions)]
+
         ur5_poses = [ur5.get_pose() for ur5 in ur5_arms]
 
         return start_configs, goal_configs, ur5_poses
@@ -160,8 +161,10 @@ class MultiarmEnvironment:
         Returns a list of configurations for the arms to get to the goal_positions, or None if it couldn't find a path.
         @param max_attempts: number of attempts to find a path
         """
-        current_configs, goal_configs, current_poses = self.get_configs_for_rrt(ur5_arms, goal_positions)
-        start_configs = current_configs if start_configs is None else start_configs
+        # Setup run first because IK looks for a configuration that is close to the current one
+        self.setup_run([0] * len(start_configs), start_configs, None, None, specific_ur5s=ur5_arms)
+
+        start_configs, goal_configs, current_poses = self.get_configs_for_rrt(ur5_arms, goal_positions, start_configs=start_configs)
 
         path = None
         attempt_count = 1
