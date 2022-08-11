@@ -599,7 +599,7 @@ class UR5:
 
     def get_end_effector_pose(self, link=None):
         link = link if link is not None else self.EEF_LINK_INDEX
-        return get_link_pose(self.body_id, link)
+        return get_link_pose(self.body_id, link, p_simulation=self.p_simulation)
 
     def inverse_kinematics(self, position, orientation=None):
         return inverse_kinematics(

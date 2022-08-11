@@ -544,25 +544,35 @@ def remove_body(body):
     return p.removeBody(body)
 
 
-def get_body_pos(body):
-    return get_body_pose(body)[0]
+def get_body_pos(body, p_simulation=None):
+    p_simulation = p if p_simulation is None else p_simulation
+
+    return get_body_pose(body, p_simulation=p_simulation)[0]
 
 
-def get_body_quat(body):
-    return get_body_pose(body)[1]  # [x,y,z,w]
+def get_body_quat(body, p_simulation=None):
+    p_simulation = p if p_simulation is None else p_simulation
+
+    return get_body_pose(body, p_simulation=p_simulation)[1]  # [x,y,z,w]
 
 
-def set_pose(body, pose):
+def set_pose(body, pose, p_simulation=None):
+    p_simulation = p if p_simulation is None else p_simulation
+
     (point, quat) = pose
-    p.resetBasePositionAndOrientation(body, point, quat)
+    p_simulation.resetBasePositionAndOrientation(body, point, quat)
 
 
-def set_point(body, point):
-    set_pose(body, (point, get_body_quat(body)))
+def set_point(body, point, p_simulation=None):
+    p_simulation = p if p_simulation is None else p_simulation
+
+    set_pose(body, (point, get_body_quat(body, p_simulation=p_simulation)))
 
 
-def set_quat(body, quat):
-    set_pose(body, (get_body_pos(body), quat))
+def set_quat(body, quat, p_simulation=None):
+    p_simulation = p if p_simulation is None else p_simulation
+
+    set_pose(body, (get_body_pos(body, p_simulation=p_simulation), quat))
 
 
 def is_rigid_body(body):
@@ -629,8 +639,9 @@ def get_body_ids():
     return sorted([p.getBodyUniqueId(i) for i in range(p.getNumBodies())])
 
 
-def get_body_pose(body):
-    raw = p.getBasePositionAndOrientation(body)
+def get_body_pose(body, p_simulation=None):
+    p_simulation = p if p_simulation is None else p_simulation
+    raw = p_simulation.getBasePositionAndOrientation(body)
     position = list(raw[0])
     orn = list(raw[1])
     return [position, orn]
@@ -725,8 +736,10 @@ LinkState = namedtuple('LinkState', ['linkWorldPosition', 'linkWorldOrientation'
                                      'worldLinkFramePosition', 'worldLinkFrameOrientation'])
 
 
-def get_link_state(body, link):
-    return LinkState(*p.getLinkState(body, link))
+def get_link_state(body, link, p_simulation=None):
+    p_simulation = p if p_simulation is None else p_simulation
+
+    return LinkState(*p_simulation.getLinkState(body, link))
 
 
 def get_com_pose(body, link):  # COM = center of mass
@@ -739,11 +752,13 @@ def get_link_inertial_pose(body, link):
     return link_state.localInertialFramePosition, link_state.localInertialFrameOrientation
 
 
-def get_link_pose(body, link):
+def get_link_pose(body, link, p_simulation=None):
+    p_simulation = p if p_simulation is None else p_simulation
+
     if link == BASE_LINK:
-        return get_body_pose(body)
+        return get_body_pose(body, p_simulation=p_simulation)
     # if set to 1 (or True), the Cartesian world position/orientation will be recomputed using forward kinematics.
-    link_state = get_link_state(body, link)
+    link_state = get_link_state(body, link, p_simulation=p_simulation)
     return [list(link_state.worldLinkFramePosition), list(link_state.worldLinkFrameOrientation)]
 
 
