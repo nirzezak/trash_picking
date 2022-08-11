@@ -134,7 +134,7 @@ class BackgroundEnv(Environment):
         above_pos_conf_per_arm = split_arms_conf(path_to_above[-1], len(arms_idx))
 
         # Block of code for rotation arms
-        # TODO: This was experimental to help focus on trash pickup, but it turns out to work really well, so we should adopt
+        # TODO: This was an experiment to help focus on trash pickup, but it turns out to work really well, so we should adopt
         #   this method of turning around to drop trash in bin, but improve this code to actually work with the appropriate bins
         rotate_arm_1 = above_pos_conf_per_arm[0].copy()
         rotate_arm_2 = above_pos_conf_per_arm[1].copy()
