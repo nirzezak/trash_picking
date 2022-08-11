@@ -19,7 +19,7 @@ class UR5Group:
         for c, pose, joints in zip(
                 self.active_controllers, start_poses, start_joints):
             c.set_arm_joints(joints)
-            # c.set_pose(pose) # I think that set_pose is useless, so I removed it - @NIR
+            # c.set_pose(pose) # I think that set_pose is useless at best and interferes at worst, so I removed it - @NIR
         return None
 
     def disable_all_ur5s(self):
