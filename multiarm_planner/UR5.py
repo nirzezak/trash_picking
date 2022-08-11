@@ -488,9 +488,14 @@ class UR5:
             # Add the plane to the list
             others_id = [0] + obstacles_ids
         else:
-            others_id = [self.p_simulation.getBodyUniqueId(i)
-                        for i in range(self.p_simulation.getNumBodies())
-                        if self.p_simulation.getBodyUniqueId(i) != self.body_id]
+            others_id = [
+                self.p_simulation.getBodyUniqueId(i)
+                for i in range(self.p_simulation.getNumBodies())
+                if (
+                    self.p_simulation.getBodyUniqueId(i) != self.body_id and
+                    (self.end_effector is not None and self.p_simulation.getBodyUniqueId(i) != self.end_effector.body_id)
+                )
+            ]
                     
         self.closest_points_to_others = [
             sorted(list(self.p_simulation.getClosestPoints(
