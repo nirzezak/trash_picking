@@ -77,28 +77,13 @@ class BackgroundEnv(Environment):
             end_pos2 = [grip_point, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]
             arms_to_actual_goal_configs.append(end_pos2)
 
-        # Verify the arms can reach the above position - assume this is good enough and the arms will be able to reach the downwards config as well
+        # Verify the arms can reach the above position - assume this is good enough and that the arms will be
+        #   able to reach the downwards config as well
         if not all(
             self.does_arm_reach(arm_idx, arms_to_above_position_configs[idx][0], arms_to_above_position_configs[idx][1])
             for idx, arm_idx in enumerate(arms_idx)
         ):
             return None
-
-        # for idx, arm_idx in enumerate(arms_idx):
-        #     does_reach = False
-        #
-        #     for attempt in range(10):
-        #         if self.does_arm_reach(arm_idx, arms_to_above_position_configs[idx][0], arms_to_above_position_configs[idx][1]):
-        #         # if self.does_arm_reach(arm_idx, arms_to_actual_goal_configs[idx][0], arms_to_actual_goal_configs[idx][1]):
-        #             does_reach = True
-        #             break
-        #
-        #         # Try again a bit further away on Y-axis
-        #         arms_to_above_position_configs[idx][0][1] += 0.2
-        #         arms_to_actual_goal_configs[idx][0][1] += 0.2
-        #
-        #     # if not does_reach:
-        #     #     return None
 
         path_to_above_position = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], arms_to_above_position_configs,
                                                          start_configs=start_configs, max_attempts=MAX_ATTEMPTS_TO_FIND_PATH, collision_distance=0.15)
