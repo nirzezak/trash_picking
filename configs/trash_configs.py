@@ -18,7 +18,7 @@ class TrashConfig(Enum):
     }
     PAPER_BOX = {
         'path': r'models/YcbCrackerBox/model.urdf',
-        'location': [-0.2, -2.5, 0.61],
-        'gripping_points': [[-0.05, 0.05, 0.185]],
+        'location': [-0.21, -2.5, 0.61],
+        'gripping_points': [[-0.04, 0.05, 0.195]],
         'trash_type': trash_types.TrashTypes.PAPER
     }
