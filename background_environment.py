@@ -178,7 +178,7 @@ class BackgroundEnv(Environment):
         for back_arm, real_arm in zip(self.arms, real_arms):
             back_arm.set_arm_joints(real_arm.get_arm_joint_values())
 
-    def does_arm_reach(self, arm_idx, location, orientation=None):
+    def does_arm_reach(self, arm_idx, location, orientation=None, epsilon=0.03):
         """
         @param arm_idx: idx of the arm to check the reach of
         @param location: the location that should be checked if arm reaches
@@ -199,8 +199,8 @@ class BackgroundEnv(Environment):
 
         # Make sure the gripper's X and Z axes are correct - assume we can tolerate error in the Y axis by waiting
         if (
-            abs(effector_position[0] - location[0]) > 0.03 or
-            abs(effector_position[2] - location[2]) > 0.03
+            abs(effector_position[0] - location[0]) > epsilon or
+            abs(effector_position[2] - location[2]) > epsilon
         ):
             logging.info(f'Arm {arm_idx} can\'t reach desired location')
             return False
