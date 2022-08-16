@@ -443,7 +443,7 @@ class UR5:
 
     def _state_machine_wait_for_trash(self):
         distance = self.get_end_effector_pose()[0][1] - self.curr_task.trash.get_curr_position()[1]
-        if distance <= 0.01:
+        if distance <= 1e-3:
             # Trash reached optimal position for picking
             self.start_tick = self.current_tick
             self.curr_task.trash.reset_friction()
