@@ -58,7 +58,6 @@ class BackgroundEnv(Environment):
         arms_to_actual_goal_configs = []
 
         for arm_idx, trash_conf in zip(arms_idx, trash):
-            # TODO: Fix this entire block of code because it is super specific
             trash = self.trash_generator.summon_trash(trash_conf)
             grip_point = trash.get_curr_gripping_points()[0]
 
@@ -70,7 +69,7 @@ class BackgroundEnv(Environment):
             above_grip_point = grip_point.copy()
             above_grip_point[2] += 0.3
 
-            end_pos = [above_grip_point, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]  # This orientation is "from above", TODO- make this dynamic?
+            end_pos = [above_grip_point, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]  # This orientation is "from above"
             arms_to_above_position_configs.append(end_pos)
 
             # Then hopefully find a path that only lowers the arm to pick up the trash
@@ -124,8 +123,6 @@ class BackgroundEnv(Environment):
             bin_loc = list(bin_loc)
             bin_loc[2] += 0.85
 
-            # TODO: Not sure if this is a good orientation, might have to play with the signs a bit
-            #   but it did seem to work better than the orientation for the trash
             end_poses.append([bin_loc, p.getQuaternionFromEuler([0, np.pi / 2, -np.pi / 2])])
 
             # The above pose should only be higher vertically
@@ -142,8 +139,6 @@ class BackgroundEnv(Environment):
         above_pos_conf_per_arm = split_arms_conf(path_to_above[-1], len(arms_idx))
 
         # Block of code for rotation arms
-        # TODO: This was an experiment to help focus on trash pickup, but it turned out to work really well, so we should adopt
-        #   this method of turning around to drop trash in bin, and try to optimize from here
         rotate_arm_1 = above_pos_conf_per_arm[0].copy()
         rotate_arm_2 = above_pos_conf_per_arm[1].copy()
 
