@@ -70,11 +70,11 @@ class MultiarmEnvironment:
                         obstacles=task.obstacles, rrt_only=rrt_only)
 
     def _birrt(self, ur5_arms, start_configs, goal_configs,
-              ur5_poses, target_eff_poses=None, obstacles=None, resolutions=0.1, timeout=300, rrt_only=False):
+              ur5_poses, target_eff_poses=None, obstacles=None, resolutions=0.1, timeout=10, rrt_only=False, collision_distance=None):
         self.setup_run(ur5_poses, start_configs, target_eff_poses, obstacles, specific_ur5s=ur5_arms)
 
         extend_fn = self.ur5_group.get_extend_fn(resolutions)
-        collision_fn = self.ur5_group.get_collision_fn()
+        collision_fn = self.ur5_group.get_collision_fn(collision_distance=collision_distance)
         start_conf = list(chain.from_iterable(start_configs))
         goal_conf = list(chain.from_iterable(goal_configs))
 
@@ -148,25 +148,28 @@ class MultiarmEnvironment:
             self.demo_path(ur5_poses, start_configs, path)
         return path, num_iterations, time
 
-    def get_configs_for_rrt(self, ur5_arms, goal_positions):
-        start_configs = [ur5.get_arm_joint_values() for ur5 in ur5_arms]
+    def get_configs_for_rrt(self, ur5_arms, goal_positions, start_configs=None):
+        start_configs = [ur5.get_arm_joint_values() for ur5 in ur5_arms] if start_configs is None else start_configs
         goal_configs = [ur5.inverse_kinematics(*goal_position) for ur5, goal_position in zip(ur5_arms, goal_positions)]
+
         ur5_poses = [ur5.get_pose() for ur5 in ur5_arms]
 
         return start_configs, goal_configs, ur5_poses
 
-    def birrt(self, ur5_arms, goal_positions, start_configs=None, max_attempts=1):
+    def birrt(self, ur5_arms, goal_positions, start_configs=None, max_attempts=1, collision_distance=None):
         """"
         Returns a list of configurations for the arms to get to the goal_positions, or None if it couldn't find a path.
         @param max_attempts: number of attempts to find a path
         """
-        current_configs, goal_configs, current_poses = self.get_configs_for_rrt(ur5_arms, goal_positions)
-        start_configs = current_configs if start_configs is None else start_configs
+        # Setup run first because IK looks for a configuration that is close to the current one
+        self.setup_run([0] * len(start_configs), start_configs, None, None, specific_ur5s=ur5_arms)
+
+        start_configs, goal_configs, current_poses = self.get_configs_for_rrt(ur5_arms, goal_positions, start_configs=start_configs)
 
         path = None
         attempt_count = 1
         while path is None and attempt_count <= max_attempts:
-            path = self._birrt(ur5_arms, start_configs, goal_configs, current_poses)[0]
+            path = self._birrt(ur5_arms, start_configs, goal_configs, current_poses, collision_distance=collision_distance)[0]
             attempt_count += 1
         return path
 
