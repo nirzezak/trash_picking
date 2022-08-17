@@ -140,8 +140,8 @@ class Robotiq2F85:
             for joint_info in self.joints
             if joint_info[2] == p.JOINT_REVOLUTE]
 
-        self.gripper_lower_limit = self.p_simulation.getJointinfo(self.body_id, self.joints[0])[8]
-        self.gripper_upper_limit = self.p_simulation.getJointinfo(self.body_id, self.joints[0])[9]
+        self.gripper_lower_limit = self.p_simulation.getJointInfo(self.body_id, self.joints[0])[8]
+        self.gripper_upper_limit = self.p_simulation.getJointInfo(self.body_id, self.joints[0])[9]
 
         self.p_simulation.setJointMotorControlArray(
             self.body_id,
@@ -324,7 +324,6 @@ class UR5:
         self.color = UR5.colors[UR5.next_available_color]
         UR5.next_available_color = (UR5.next_available_color + 1) % len(UR5.colors)
 
-        # if not background:
         self.body_id = self.p_simulation.loadURDF('assets/ur5/ur5.urdf',
                                                   self.pose[0],
                                                   self.pose[1],
