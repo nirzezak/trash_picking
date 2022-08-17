@@ -66,7 +66,7 @@ TOUCHED = 1
 
 
 class Robotiq2F85:
-    TICKS_TO_CHANGE_GRIP = 250
+    TICKS_TO_CHANGE_GRIP = 50
 
     def __init__(self, p_simulation, ur5, color, replace_textures=True):
         """
@@ -134,10 +134,15 @@ class Robotiq2F85:
         self.normal()
         self.joints = [self.p_simulation.getJointInfo(
             self.body_id, i) for i in range(self.p_simulation.getNumJoints(self.body_id))]
+
         self.joints = [
             joint_info[0]
             for joint_info in self.joints
             if joint_info[2] == p.JOINT_REVOLUTE]
+
+        self.gripper_lower_limit = self.p_simulation.getJointinfo(self.body_id, self.joints[0])[8]
+        self.gripper_upper_limit = self.p_simulation.getJointinfo(self.body_id, self.joints[0])[9]
+
         self.p_simulation.setJointMotorControlArray(
             self.body_id,
             self.joints,
@@ -461,7 +466,6 @@ class UR5:
             self.no_change_joint_state_count = 0
             self.prev_joint_state = None
             self.state = ArmState.IDLE
-            self.stop_gripper()
             self.end_task()
 
     def _calc_prev_conf_diff(self, current_joint_state):
@@ -555,30 +559,22 @@ class UR5:
         if self.end_effector is not None:
             self.p_simulation.setJointMotorControl2(
                 self.end_effector.body_id,
-                1,
-                self.p_simulation.VELOCITY_CONTROL,
-                targetVelocity=5,
-                force=5
+                self.end_effector.joints[0],
+                self.p_simulation.POSITION_CONTROL,
+                targetPosition=self.end_effector.gripper_upper_limit,
+                force=5,
+                maxVelocity=5
             )
 
     def open_gripper(self):
         if self.end_effector is not None:
             self.p_simulation.setJointMotorControl2(
                 self.end_effector.body_id,
-                1,
-                self.p_simulation.VELOCITY_CONTROL,
-                targetVelocity=-5,
-                force=5
-            )
-
-    def stop_gripper(self):
-        if self.end_effector is not None:
-            self.p_simulation.setJointMotorControl2(
-                self.end_effector.body_id,
-                1,
-                self.p_simulation.VELOCITY_CONTROL,
-                targetVelocity=0,
-                force=5
+                self.end_effector.joints[0],
+                self.p_simulation.POSITION_CONTROL,
+                targetPosition=self.end_effector.gripper_lower_limit,
+                force=10000,
+                maxVelocity=-5
             )
 
     def get_pose(self):
