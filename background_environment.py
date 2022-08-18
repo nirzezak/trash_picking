@@ -1,9 +1,12 @@
 import logging
-import time
+import multiprocessing as mp
+from typing import List, Dict
+
 import pybullet as p
 import numpy as np
 from environment import Environment, EnvironmentArgs
 from multiarm_planner.multiarm_environment import split_arms_conf
+from task import PendingTask, PendingTaskResult
 
 MAX_ATTEMPTS_TO_FIND_PATH = 200
 
@@ -15,13 +18,13 @@ class BackgroundEnv(Environment):
         """
         super().__init__(env_args.connection_mode, 0, env_args.arms_path, env_args.trash_bins_path, set_pybullet_utils_p=True)
 
-    def compute_motion_plan(self, arms_idx, trash, bin_locations, start_configs, real_arms=None):
+    def compute_motion_plan(self, arms_idx, trash, bin_locations, start_configs, real_arms_configs=None):
         """"
         @param arms_idx: arm indices to find paths for
         @param trash: list of trash configs, same order as in arms_idx
         @param bin_locations: list of bin locations, same order as in arms_idx
         @param start_configs: list of start configs of the arms, same order as in arms_idx
-        @param real_arms: list of arms in the real environment, same order as in the background environment
+        @param real_arms_configs: list of arms in the real environment, same order as in the background environment
 
         @returns:
         if path is found, returns paths to trash, paths to bin
@@ -30,8 +33,8 @@ class BackgroundEnv(Environment):
 
         if no path found, return None
         """
-        if real_arms is not None:
-            self.sync_arm_positions(real_arms)
+        if real_arms_configs is not None:
+            self.sync_arm_positions(real_arms_configs)
 
         paths_to_trash = self.compute_path_to_trash(arms_idx, trash, start_configs)
         if paths_to_trash is None:
@@ -136,12 +139,67 @@ class BackgroundEnv(Environment):
 
         return path_to_above + path_to_bin
 
-    def sync_arm_positions(self, real_arms):
+    def sync_arm_positions(self, real_arms_configs):
         """
-        @param real_arms: list of the arms in the real environment
+        @param real_arms_configs: list of the arms in the real environment
 
         Sets every arm in the background environment to the configuration of their respective arm in the real environment
         """
 
-        for back_arm, real_arm in zip(self.arms, real_arms):
-            back_arm.set_arm_joints(real_arm.get_arm_joint_values())
+        for back_arm, real_arm_config in zip(self.arms, real_arms_configs):
+            back_arm.set_arm_joints(real_arm_config)
+
+
+class ParallelEnv(object):
+    def __init__(self, env_args: EnvironmentArgs):
+        self.env_args = env_args
+        self.input_queue = mp.Queue()
+        self.output_queue = mp.Queue()
+
+        self.worker = mp.Process(target=worker_runner, args=(self.env_args, self.input_queue, self.output_queue))
+        self.worker.start()
+
+    def dispatch(self, task_id, arms_idx: List[int], trash_conf: List[Dict], bin_locations, start_configs,
+                 real_arms_configs=None):
+        logging.debug('Master: Sending new task!')
+        task = PendingTask(task_id, arms_idx, trash_conf, bin_locations, start_configs,
+                           real_arms_configs=real_arms_configs)
+        self.input_queue.put(task)
+
+    def poll_dispatched_tasks(self) -> List[PendingTaskResult]:
+        finished_tasks = []
+        while not self.output_queue.empty():
+            logging.debug('Master: Received new finished task!')
+            task = self.output_queue.get()
+            finished_tasks.append(task)
+
+        return finished_tasks
+
+
+class ParallelEnvWorker(object):
+    def __init__(self, env_args: EnvironmentArgs, input_queue: mp.Queue, output_queue: mp.Queue):
+        self.env = BackgroundEnv(env_args)
+        self.input_queue = input_queue
+        self.output_queue = output_queue
+
+    def run(self):
+        while True:
+            if not self.input_queue.empty():
+                # Got a task
+                logging.debug('Worker: Received new task!')
+                task: PendingTask = self.input_queue.get()
+                path = self.env.compute_motion_plan(task.arms_idx,
+                                                    task.trash_conf,
+                                                    task.bin_locations,
+                                                    task.start_configs,
+                                                    task.real_arms_configs)
+
+                # Send task result back
+                task_result = PendingTaskResult(task.trash_conf, path)
+                self.output_queue.put(task_result)
+                logging.debug('Worker: Sending finished task!')
+
+
+def worker_runner(env_args: EnvironmentArgs, input_queue: mp.Queue, output_queue: mp.Queue):
+    worker = ParallelEnvWorker(env_args, input_queue, output_queue)
+    worker.run()

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from enum import Enum, auto
 
-from typing import List
+from typing import List, Dict
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from multiarm_planner.UR5 import UR5
     from trash import Trash
@@ -37,3 +38,20 @@ class Task(object):
         self.path_to_bin = path_to_bin
         self.state = TaskState.WAIT
         self.arms_involved = arms_involved
+
+
+class PendingTask(object):
+    def __init__(self, task_id, arms_idx: List[int], trash_conf: List[Dict], bin_locations, start_configs,
+                 real_arms_configs=None):
+        self.task_id = task_id
+        self.arms_idx = arms_idx
+        self.trash_conf = trash_conf
+        self.bin_locations = bin_locations
+        self.start_configs = start_configs
+        self.real_arms_configs = real_arms_configs
+
+
+class PendingTaskResult(object):
+    def __init__(self, task_id, path):
+        self.task_id = task_id
+        self.path = path

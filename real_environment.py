@@ -8,7 +8,7 @@ from background_environment import BackgroundEnv
 from environment import Environment, EnvironmentArgs
 from score import Score
 from summon_component import RandomSummonComponent, DeterministicSummonComponent, FixedAmountSummonComponent
-from task_manager import AdvancedTaskManager, SimpleTaskManager
+from task_manager import AdvancedTaskManager, SimpleTaskManager, ParallelTaskManager
 from configs.trash_configs import TrashConfig
 
 
@@ -22,12 +22,12 @@ class RealEnv(Environment):
         # Manage the real environment: clocks, and scoreboard
         back_connection_mode = p.DIRECT if env_args.connection_mode == p.GUI else p.GUI
         back_env_args = EnvironmentArgs(back_connection_mode, env_args.arms_path, env_args.trash_bins_path)
-        background_env = BackgroundEnv(back_env_args)
-        self.task_manager = SimpleTaskManager(self.arms, self.bins, self.conveyor.speed, background_env)
+        self.task_manager = ParallelTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args)
         self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL)
         self.score = Score()
         self.summon_component = FixedAmountSummonComponent(self.trash_generator, self.task_manager, self.summon_tick,
                                                            trash=TrashConfig.METAL_CAN, amount=2)
+        import time; time.sleep(1)
 
     def step(self):
         self.summon_component.step()
