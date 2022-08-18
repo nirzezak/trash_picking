@@ -256,7 +256,7 @@ class ParallelEnvWorker(object):
                                                     task.real_arms_configs)
 
                 # Send task result back
-                task_result = PendingTaskResult(task.trash_conf, path)
+                task_result = PendingTaskResult(task.task_id, path)
                 self.output_queue.put(task_result)
                 logging.debug('Worker: Sending finished task!')
 
