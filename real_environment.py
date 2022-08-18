@@ -10,6 +10,7 @@ from score import Score
 from summon_component import RandomSummonComponent, DeterministicSummonComponent, FixedAmountSummonComponent
 from task_manager import AdvancedTaskManager, SimpleTaskManager, ParallelTaskManager
 from configs.trash_configs import TrashConfig
+from multiarm_planner.UR5 import ArmState
 
 
 class RealEnv(Environment):
@@ -38,6 +39,9 @@ class RealEnv(Environment):
         # Simulate the environment
         for arm in self.arms:
             arm.ur5_step()
+            if arm.state == ArmState.PICKING_TRASH:
+                # Stop conveying trash that is being picked up
+                self.conveyor.unconvey(arm.curr_task.trash.get_id())
 
         self.p_simulation.stepSimulation()
         self.conveyor.convey()

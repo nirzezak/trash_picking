@@ -31,8 +31,9 @@ class ArmState(enum.Enum):
     IDLE = 0
     MOVING_TO_TRASH = 1
     MOVING_TO_BIN = 2
-    PICKING_TRASH = 3
-    RELEASING_TRASH = 4
+    WAITING_FOR_TRASH = 3
+    PICKING_TRASH = 4
+    RELEASING_TRASH = 5
 
 
 class HemisphereWorkspace:
@@ -65,7 +66,7 @@ TOUCHED = 1
 
 
 class Robotiq2F85:
-    TICKS_TO_CHANGE_GRIP = 250
+    TICKS_TO_CHANGE_GRIP = 50
 
     def __init__(self, p_simulation, ur5, color, replace_textures=True):
         """
@@ -73,11 +74,17 @@ class Robotiq2F85:
         """
         self.p_simulation = p_simulation
         self.ur5 = ur5
-        pose = ur5.get_end_effector_pose()
+
+        # Some QoL improvements to how the gripper spawns initially
+        pose_loc, pose_orient = ur5.get_end_effector_pose()
+        pose_loc[1] -= 0.05
+        pose_orient = p.getQuaternionFromEuler([0, -np.pi / 2, -np.pi /2])
         self.body_id = self.p_simulation.loadURDF(
             'assets/gripper/robotiq_2f_85.urdf',
-            pose[0],
-            pose[1])
+            pose_loc,
+            pose_orient
+        )
+
         self.color = color
         self.replace_textures = replace_textures
         self.tool_joint_idx = 7
@@ -110,26 +117,32 @@ class Robotiq2F85:
                 self.p_simulation.changeVisualShape(
                     self.body_id,
                     i,
-                    textureUniqueId=-1,
-                    rgbaColor=(0, 0, 0, 0.5))
+                    rgbaColor=(self.color[0], self.color[1], self.color[2], 1)
+                )
 
         self.p_simulation.changeVisualShape(
             self.body_id,
             0,
-            textureUniqueId=-1,
             rgbaColor=(
                 self.color[0],
                 self.color[1],
-                self.color[2], 0.5))
+                self.color[2], 1
+            )
+        )
 
         self._mode = NORMAL
         self.normal()
         self.joints = [self.p_simulation.getJointInfo(
             self.body_id, i) for i in range(self.p_simulation.getNumJoints(self.body_id))]
+
         self.joints = [
             joint_info[0]
             for joint_info in self.joints
             if joint_info[2] == p.JOINT_REVOLUTE]
+
+        self.gripper_lower_limit = self.p_simulation.getJointInfo(self.body_id, self.joints[0])[8]
+        self.gripper_upper_limit = self.p_simulation.getJointInfo(self.body_id, self.joints[0])[9]
+
         self.p_simulation.setJointMotorControlArray(
             self.body_id,
             self.joints,
@@ -234,32 +247,6 @@ class Robotiq2F85:
     def update_eef_pose(self):
         self.set_pose(self.ur5.get_end_effector_pose())
 
-    def check_collision(self, collision_distance=0.0):
-        others_id = [self.p_simulation.getBodyUniqueId(i)
-                     for i in range(self.p_simulation.getNumBodies())
-                     if self.p_simulation.getBodyUniqueId(i) != self.body_id]
-
-        closest_points_to_others = []
-        for other_id in others_id:
-            if other_id == 0:
-                points = []
-            else:
-                points = self.p_simulation.getClosestPoints(bodyA=self.body_id, bodyB=other_id, distance=0.1)
-                points = sorted(points, key=lambda contact_point: contact_point[8])
-            closest_points_to_others.append(points)
-
-        for i, points in enumerate(closest_points_to_others):
-            if i == 0:
-                for point in self.p_simulation.getClosestPoints(bodyA=self.body_id, bodyB=0, distance=0.0):
-                    if point[8] < collision_distance:
-                        return True
-            else:
-                for point in points:
-                    if point[8] < collision_distance:
-                        return True
-
-        return False
-
 
 class InvalidArmState(Exception):
     pass
@@ -272,12 +259,15 @@ class UR5:
 
     next_available_color = 0
     colors = [
-        [0.4, 0, 0],
-        [0, 0, 0.4],
-        [0, 0.4, 0.4],
-        [0.4, 0, 0.4],
-        [0.4, 0.4, 0],
         [0, 0, 0],
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+        [1, 1, 1],
+        [1, 0, 1],
+        [0, 1, 1],
+        [1, 0, 1],
+        [1, 1, 0],
     ]
     workspace_radius = 0.85
 
@@ -332,8 +322,8 @@ class UR5:
             radius=UR5.workspace_radius,
             origin=self.pose[0])
         self.color = UR5.colors[UR5.next_available_color]
-        UR5.next_available_color = (UR5.next_available_color + 1)\
-            % len(UR5.colors)
+        UR5.next_available_color = (UR5.next_available_color + 1) % len(UR5.colors)
+
         self.body_id = self.p_simulation.loadURDF('assets/ur5/ur5.urdf',
                                                   self.pose[0],
                                                   self.pose[1],
@@ -400,6 +390,8 @@ class UR5:
             self._state_machine_idle()
         elif self.state == ArmState.MOVING_TO_TRASH or self.state == ArmState.MOVING_TO_BIN:
             self._state_machine_moving()
+        elif self.state == ArmState.WAITING_FOR_TRASH:
+            self._state_machine_wait_for_trash()
         elif self.state == ArmState.PICKING_TRASH:
             self._state_machine_picking_trash()
         elif self.state == ArmState.RELEASING_TRASH:
@@ -445,13 +437,22 @@ class UR5:
                 self.start_tick = self.current_tick
 
                 if self.state == ArmState.MOVING_TO_TRASH:
-                    # Finished moving to trash - now pick it up
-                    self.state = ArmState.PICKING_TRASH
-                    self.close_gripper()
+                    # Finished moving to trash - now wait for trash to reach optimal position
+                    self.state = ArmState.WAITING_FOR_TRASH
+
                 elif self.state == ArmState.MOVING_TO_BIN:
                     # Finished moving to bin - drop trash in bin
                     self.state = ArmState.RELEASING_TRASH
                     self.open_gripper()
+
+    def _state_machine_wait_for_trash(self):
+        distance = self.get_end_effector_pose()[0][1] - self.curr_task.trash.get_curr_position()[1]
+        if distance <= 1e-3:
+            # Trash reached optimal position for picking
+            self.start_tick = self.current_tick
+            self.curr_task.trash.reset_friction()
+            self.close_gripper()
+            self.state = ArmState.PICKING_TRASH
 
     def _state_machine_picking_trash(self):
         # Check if gripper picked trash
@@ -464,7 +465,6 @@ class UR5:
             self.no_change_joint_state_count = 0
             self.prev_joint_state = None
             self.state = ArmState.IDLE
-            self.stop_gripper()
             self.end_task()
 
     def _calc_prev_conf_diff(self, current_joint_state):
@@ -491,9 +491,14 @@ class UR5:
             # Add the plane to the list
             others_id = [0] + obstacles_ids
         else:
-            others_id = [self.p_simulation.getBodyUniqueId(i)
-                        for i in range(self.p_simulation.getNumBodies())
-                        if self.p_simulation.getBodyUniqueId(i) != self.body_id]
+            others_id = [
+                self.p_simulation.getBodyUniqueId(i)
+                for i in range(self.p_simulation.getNumBodies())
+                if (
+                    self.p_simulation.getBodyUniqueId(i) != self.body_id and
+                    (self.end_effector is not None and self.p_simulation.getBodyUniqueId(i) != self.end_effector.body_id)
+                )
+            ]
                     
         self.closest_points_to_others = [
             sorted(list(self.p_simulation.getClosestPoints(
@@ -526,7 +531,8 @@ class UR5:
                 # Check whether closest point's distance is
                 # less than collision distance
                 for point in closest_points_to_other:
-                    if point[8] < collision_distance:
+                    # Keep an extra safety distance from the tip joint to illustrate gripper behavior
+                    if point[8] < 0 or (point[3] == 6 and point[8] < collision_distance):
                         self.prev_collided_with = point
                         return True
         # Self Collision
@@ -536,7 +542,7 @@ class UR5:
                     self.prev_collided_with = point
                     return True
         self.prev_collided_with = None
-        return self.end_effector.check_collision(collision_distance)
+        return False
 
     def disable(self, idx=0):
         self.enabled = False
@@ -552,30 +558,22 @@ class UR5:
         if self.end_effector is not None:
             self.p_simulation.setJointMotorControl2(
                 self.end_effector.body_id,
-                1,
-                self.p_simulation.VELOCITY_CONTROL,
-                targetVelocity=5,
-                force=10000
+                self.end_effector.joints[0],
+                self.p_simulation.POSITION_CONTROL,
+                targetPosition=self.end_effector.gripper_upper_limit,
+                force=5,
+                maxVelocity=5
             )
 
     def open_gripper(self):
         if self.end_effector is not None:
             self.p_simulation.setJointMotorControl2(
                 self.end_effector.body_id,
-                1,
-                self.p_simulation.VELOCITY_CONTROL,
-                targetVelocity=-5,
-                force=10000
-            )
-
-    def stop_gripper(self):
-        if self.end_effector is not None:
-            self.p_simulation.setJointMotorControl2(
-                self.end_effector.body_id,
-                1,
-                self.p_simulation.VELOCITY_CONTROL,
-                targetVelocity=0,
-                force=10000
+                self.end_effector.joints[0],
+                self.p_simulation.POSITION_CONTROL,
+                targetPosition=self.end_effector.gripper_lower_limit,
+                force=10000,
+                maxVelocity=-5
             )
 
     def get_pose(self):
@@ -596,7 +594,7 @@ class UR5:
 
     def get_end_effector_pose(self, link=None):
         link = link if link is not None else self.EEF_LINK_INDEX
-        return get_link_pose(self.body_id, link)
+        return get_link_pose(self.body_id, link, p_simulation=self.p_simulation)
 
     def inverse_kinematics(self, position, orientation=None):
         return inverse_kinematics(
@@ -604,7 +602,9 @@ class UR5:
             self.EEF_LINK_INDEX,
             position,
             orientation,
-            max_num_iterations=50)
+            max_num_iterations=50,
+            p_simulation=self.p_simulation
+        )
 
     def forward_kinematics(self, joint_values):
         return forward_kinematics(
