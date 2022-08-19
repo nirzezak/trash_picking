@@ -79,5 +79,17 @@ class Environment(object):
             arms_data = json.load(f)
 
         orientation = p.getQuaternionFromEuler([0, 0, 0])
+        arms = []
 
-        return [UR5.UR5(self.p_simulation, (arm['loc'], orientation)) for arm in arms_data]
+        for arm in arms_data:
+            if arm['loc'][0] > 0:
+                ur5_arm = UR5.UR5(self.p_simulation, (arm['loc'], orientation))
+                ur5_arm.set_arm_joints([math.pi - 0.6, -0.4, 0.6, 1.35, 1.55, 0.95])
+
+            else:
+                ur5_arm = UR5.UR5(self.p_simulation, (arm['loc'], orientation))
+                ur5_arm.set_arm_joints([-0.6, -0.4, 0.6, 1.35, 1.55, 0.95])
+
+                arms.append(ur5_arm)
+
+        return arms
