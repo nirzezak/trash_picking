@@ -78,6 +78,19 @@ class Environment(object):
         with open(self.arms_path, 'r') as f:
             arms_data = json.load(f)
 
-        orientation = p.getQuaternionFromEuler([0, 0, 0])
+        ur5_list = []
+        for arm in arms_data:
+            orientation = p.getQuaternionFromEuler([0, 0, 0])
 
-        return [UR5.UR5(self.p_simulation, (arm['loc'], orientation)) for arm in arms_data]
+            if arm['loc'][0] > 0:
+                ur5_arm = UR5.UR5(self.p_simulation, (arm['loc'], orientation))
+                ur5_arm.set_arm_joints([math.pi - 0.6, -0.4, 0.6, 1.35, 1.55, 0.95])
+
+            else:
+
+                ur5_arm = UR5.UR5(self.p_simulation, (arm['loc'], orientation))
+                ur5_arm.set_arm_joints([-0.6, -0.4, 0.6, 1.35, 1.55, 0.95])
+
+            ur5_list.append(ur5_arm)
+
+        return ur5_list

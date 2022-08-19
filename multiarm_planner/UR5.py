@@ -66,7 +66,7 @@ TOUCHED = 1
 
 
 class Robotiq2F85:
-    TICKS_TO_CHANGE_GRIP = 50
+    TICKS_TO_CHANGE_GRIP = 100
 
     def __init__(self, p_simulation, ur5, color, replace_textures=True):
         """
@@ -259,7 +259,6 @@ class UR5:
 
     next_available_color = 0
     colors = [
-        [0, 0, 0],
         [1, 0, 0],
         [0, 1, 0],
         [0, 0, 1],
@@ -268,6 +267,7 @@ class UR5:
         [0, 1, 1],
         [1, 0, 1],
         [1, 1, 0],
+        [0, 0, 0],
     ]
     workspace_radius = 0.85
 
@@ -294,6 +294,7 @@ class UR5:
         """
         # # # Our stuff # # #
         self.p_simulation = p_simulation
+        self._is_right_arm = None
 
         # Arm state machine
         self.curr_task = None  # the current executed task
@@ -637,3 +638,16 @@ class UR5:
         self.control_arm_joints(joint_values=joint_values)
         if self.end_effector is not None:
             self.end_effector.update_eef_pose()
+
+    @property
+    def is_right_arm(self):
+        """
+        Returns True if the UR5 arm is on the right side of the conveyor, False otherwise
+        """
+        if self._is_right_arm is not None:
+            return self._is_right_arm
+
+        # The conveyor is centered around 0 on the X-axis, therefore, arms with positive X are on the right side
+        self._is_right_arm = self.get_pose()[0][0] > 0
+
+        return self._is_right_arm
