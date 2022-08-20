@@ -779,12 +779,14 @@ class ParallelTaskManager(SimpleTaskManager):
             if self.arms_to_tasks[pair.arms[0]] is not None:
                 continue
 
-            # TODO: Shouldn't we also add a test on the distance between the X
-            #  axis of the trash and the arms?
-
             # 1. find what will be the picking tick of the task if this arm pair will do the task
             # picking tick := the tick in which the arms will pick the trash
             trash_pair_picking_points = self._calc_trash_pair_picking_point(pair.arms, trash_pair)
+
+            # TODO: Currently, the test that a pair can reach some trash is done in the background environment.
+            #  However, this means that we can't know before we send a calculation request whether or not the arms
+            #  reach or not. This means that we would need to send the request to each pair in order to find a pair
+            #  that can actually reach, which sucks since we might do the calculation several times for no reason...
 
             # 2. Send a motion plan calculation request
             bin_dst_loc = [self.closest_bins[arm][trash.trash_type] for trash, arm in zip(trash_pair, pair.arms)]
