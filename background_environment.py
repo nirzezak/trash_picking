@@ -217,7 +217,7 @@ class ParallelEnv(object):
         self.input_queue = mp.Queue()
         self.output_queue = mp.Queue()
 
-        self.worker = mp.Process(target=worker_runner, args=(self.env_args, self.input_queue, self.output_queue))
+        self.worker = mp.Process(target=worker_runner, daemon=True, args=(self.env_args, self.input_queue, self.output_queue))
         self.worker.start()
 
     def dispatch(self, task_id, arms_idx: List[int], trash_conf: List[Dict], bin_locations, start_configs,
@@ -262,5 +262,8 @@ class ParallelEnvWorker(object):
 
 
 def worker_runner(env_args: EnvironmentArgs, input_queue: mp.Queue, output_queue: mp.Queue):
+    import psutil
+    process = psutil.Process()
+    process.nice(psutil.ABOVE_NORMAL_PRIORITY_CLASS)
     worker = ParallelEnvWorker(env_args, input_queue, output_queue)
     worker.run()
