@@ -15,7 +15,7 @@ class Trash(object):
     @param id: The object's ID as returned by pybullet
     @param trash_size: How many arms are required to lift the object?
     """
-    def __init__(self, p_simulation, path=None, location=None, gripping_points=None, trash_type=TrashTypes.PLASTIC):
+    def __init__(self, p_simulation, path=None, location=None, gripping_points=None, trash_type=TrashTypes.PLASTIC, **kwargs):
         """
         @param p_simulation: pybullet simulation physics client
         @param path: Path to the URDF file containing the object
