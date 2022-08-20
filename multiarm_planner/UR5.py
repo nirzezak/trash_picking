@@ -295,6 +295,7 @@ class UR5:
         # # # Our stuff # # #
         self.p_simulation = p_simulation
         self._is_right_arm = None
+        self.base_config = [0, 0, 0, 0, 0, 0]
 
         # Arm state machine
         self.curr_task = None  # the current executed task
@@ -638,6 +639,10 @@ class UR5:
         self.control_arm_joints(joint_values=joint_values)
         if self.end_effector is not None:
             self.end_effector.update_eef_pose()
+
+    def set_base_config(self, base_config):
+        self.set_arm_joints(base_config)
+        self.base_config = base_config
 
     @property
     def is_right_arm(self):

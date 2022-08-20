@@ -90,8 +90,22 @@ class BackgroundEnv(Environment):
         ):
             return None
 
+        path_to_base = self.arms_manager.birrt(
+            [self.arms[arm_idx] for arm_idx in arms_idx],
+            goal_configs=[self.arms[arm_idx].base_config for arm_idx in arms_idx],
+            start_configs=start_configs, max_attempts=MAX_ATTEMPTS_TO_FIND_PATH,
+            collision_distance=0.15
+        )
+
+        if path_to_base is not None:
+            path_to_base_conf_per_arm = split_arms_conf(path_to_base[-1], n_arms)
+
+        else:
+            path_to_base = []
+            path_to_base_conf_per_arm = start_configs
+
         path_to_above_position = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], arms_to_above_position_configs,
-                                                         start_configs=start_configs, max_attempts=MAX_ATTEMPTS_TO_FIND_PATH, collision_distance=0.15)
+                                                         start_configs=path_to_base_conf_per_arm, max_attempts=MAX_ATTEMPTS_TO_FIND_PATH, collision_distance=0.15)
         if path_to_above_position is None:
             self.trash_generator.remove_trash()
             return None
@@ -110,7 +124,7 @@ class BackgroundEnv(Environment):
         # removes all trash
         self.trash_generator.remove_trash()
 
-        return path_to_above_position + path_from_above_pos_to_actual_pos
+        return path_to_base + path_to_above_position + path_from_above_pos_to_actual_pos
 
     def compute_path_to_bin(self, arms_idx, bin_locations, start_configs):
         """"
@@ -125,6 +139,7 @@ class BackgroundEnv(Environment):
 
         above_poses = []
         end_poses = []
+
         for arm_idx, bin_loc in zip(arms_idx, bin_locations):
             bin_loc = list(bin_loc)
             bin_loc[2] += 0.85
