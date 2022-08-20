@@ -169,17 +169,20 @@ class BackgroundEnv(Environment):
 
         # Block of code for rotation arms
         rotate_arm_1 = above_pos_conf_per_arm[0].copy()
-        rotate_arm_2 = above_pos_conf_per_arm[1].copy()
+        rotate_arm_2 = above_pos_conf_per_arm[1].copy() if len(arms_idx) == 2 else [0] # Not used if called only with one arm
 
         rotation_confs = []
         for i, j in zip(np.linspace(rotate_arm_1[0], rotation_value, num=100, endpoint=True), np.linspace(rotate_arm_2[0], rotation_value, num=100, endpoint=True)):
             rotation1 = rotate_arm_1.copy()
             rotation1[0] = i
 
-            rotation2 = rotate_arm_2.copy()
-            rotation2[0] = j
+            if len(arms_idx) == 2:
+                rotation2 = rotate_arm_2.copy()
+                rotation2[0] = j
+                rotation_confs.append(rotation1 + rotation2)
 
-            rotation_confs.append(rotation1 + rotation2)
+            else:
+                rotation_confs.append(rotation1)
 
         # get list of the arms configs when they reach the "rotated position"
         rotated_conf_per_arm = split_arms_conf(rotation_confs[-1], len(arms_idx))
