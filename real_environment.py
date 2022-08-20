@@ -1,4 +1,5 @@
 import math
+import time
 
 import pybullet as p
 
@@ -28,7 +29,7 @@ class RealEnv(Environment):
         self.score = Score()
         self.summon_component = FixedAmountSummonComponent(self.trash_generator, self.task_manager, self.summon_tick,
                                                            trash=TrashConfig.METAL_CAN, amount=2)
-        import time; time.sleep(1)
+        time.sleep(3)
 
     def step(self):
         self.summon_component.step()

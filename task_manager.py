@@ -711,7 +711,6 @@ class ParallelTaskManager(TaskManagerComponent):
         for older_trash in self.single_trash:
             if self._can_be_trash_pair(trash, older_trash) and self._try_dispatch_trash_to_arms(trash, older_trash):
                 self.single_trash.remove(older_trash)
-                import time; time.sleep(5)
                 return
 
         self.single_trash.append(trash)
