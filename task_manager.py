@@ -35,14 +35,9 @@ class TaskManagerComponent(ABC):
 
 
 class AdvancedTaskManager(TaskManagerComponent):
-    def __init__(self, arms: List[UR5], arms_idx_pairs: List[List[int]], bins: List[Bin], trash_velocity: float,
-                 background_env: BackgroundEnv):
+    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env: BackgroundEnv):
         """
         @param arms: A list of all of the available arms
-        @param arms_idx_pairs: a list of arm pairs, each pair is represented as a list (length=2),
-        containing the indices of the arms of that pair.
-        arm pair should be from the same side of the conveyor and without other arms between.
-        we assume that the distance between each pair is the same
         @param bins: A list of all of the available bins
         @param trash_velocity: The velocity of the trash, we assume velocity
         only on the Y axis.
@@ -52,8 +47,10 @@ class AdvancedTaskManager(TaskManagerComponent):
         - Each list of tasks from self.arms_to_tasks is sorted by task.start_tick
         """
         self.arms = arms
-        self.arms_idx_pairs = arms_idx_pairs
-        self.sort_arms_pairs_by_y_axis()
+
+        self.arms_idx_pairs = list(zip(range(0, len(self.arms), 2), range(1, len(self.arms), 2)))
+        self.arms_pairs = list(zip(self.arms[::2], self.arms[1::2]))
+
         self.bins = bins
         self.trash_velocity = trash_velocity
 
@@ -63,7 +60,7 @@ class AdvancedTaskManager(TaskManagerComponent):
         self.arms_to_tasks: Dict[UR5, List[Task]] = {arm: [] for arm in self.arms}  # maps arms to a list of their current tasks, ordered by task.start_tick
 
         # calculate distance between arm pair in y axis, assuming this distance is the same for each pair
-        arm_pair0_y_axis = [self.arms[idx].get_pose()[0][1] for idx in arms_idx_pairs[0]]  # list of the y axis value of the arms in pair 0
+        arm_pair0_y_axis = [self.arms[idx].get_pose()[0][1] for idx in self.arms_idx_pairs[0]]  # list of the y axis value of the arms in pair 0
         arm_pair_dist_y_axis = abs(arm_pair0_y_axis[0] - arm_pair0_y_axis[1])
 
         self.max_dist_between_trash_pair_y_axis = 2 * ARM_TO_TRASH_MAX_DIST[1] + arm_pair_dist_y_axis
@@ -258,11 +255,22 @@ class AdvancedTaskManager(TaskManagerComponent):
             # 2. find the prev_task, next_task with the estimation for the start tick for the first arm
             prev_task, next_task = self.get_task_prev_and_next(arms[0], start_tick_upper_bound)
 
+            is_past_picking_point = False
+            for picking_point, trash in zip(trash_group_picking_points, trash_lst):
+                if picking_point[1] < trash.get_curr_position()[1]:
+                    # trash is past the arm's picking point
+                    is_past_picking_point = True
+                    break
+
+            if is_past_picking_point:
+                continue
+
             # 3. check if the arms are possibly available to do this task
             # 3.1 check if this task needs to begin before prev_task is done
             if prev_task is not None and start_tick_upper_bound <= prev_task.start_tick + prev_task.len_in_ticks:
                 # this task needs to begin before prev_task is done, can't assigned it to this arm
                 continue
+
             # 3.2 check if this task will be finished after next_task begins
             if next_task is not None and picking_tick + TICKS_AFTER_GETTING_TO_TRASH_LOW_BOUND >= next_task.start_tick:
                 # this task won't finish in time, can't assigned it to this arm
@@ -273,9 +281,14 @@ class AdvancedTaskManager(TaskManagerComponent):
             bin_dst_loc = [self._find_closest_bin(trash, arm) for trash, arm in zip(trash_lst, arms)]
 
             index_for_arm_tasks_lst = [self.get_index_for_new_task(arm, start_tick_upper_bound) for arm in arms]
-            arm_start_conf = [arm.get_arm_joint_values() if idx == 0 else
-                              self.arms_to_tasks[arm][idx - 1].path_to_bin[-1]
-                              for arm, idx in zip(arms, index_for_arm_tasks_lst)]  # TODO SHIR - when we add task in the middle of the task list, we are ruining the arm_start_conf of next_task.
+            arm_start_conf = []
+            for arm, idx in zip(arms, index_for_arm_tasks_lst):
+                if idx == 0 or len(self.arms_to_tasks[arm][idx - 1].path_to_bin) == 0:
+                    arm_start_conf.append(arm.get_arm_joint_values())
+
+                else:
+                    # TODO SHIR - when we add task in the middle of the task list, we are ruining the arm_start_conf of next_task.
+                    arm_start_conf.append(self.arms_to_tasks[arm][idx - 1].path_to_bin[-1])
 
             trash_conf = [trash_lst[i].get_trash_config_at_loc(trash_group_picking_points[i])
                           for i in range(n_trash)]
