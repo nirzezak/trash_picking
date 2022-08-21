@@ -90,9 +90,20 @@ class BackgroundEnv(Environment):
         ):
             return None
 
+        # First move to base config, and only then look for path to trash
+        goal_configs = []
+        for arm_idx, position in zip(arms_idx, arms_to_above_position_configs):
+            goal_config = self.arms[arm_idx].inverse_kinematics(*position)
+            base_config = self.arms[arm_idx].base_config.copy()
+
+            # Prevent overshooting by controlling the rotation of the arm (joint 1) - rotate only as much as needed to pick up the trash
+            base_config[0] = goal_config[0]
+
+            goal_configs.append(base_config)
+
         path_to_base = self.arms_manager.birrt(
             [self.arms[arm_idx] for arm_idx in arms_idx],
-            goal_configs=[self.arms[arm_idx].base_config for arm_idx in arms_idx],
+            goal_configs=goal_configs,
             start_configs=start_configs, max_attempts=MAX_ATTEMPTS_TO_FIND_PATH,
             collision_distance=0.15
         )
@@ -101,11 +112,18 @@ class BackgroundEnv(Environment):
             path_to_base_conf_per_arm = split_arms_conf(path_to_base[-1], n_arms)
 
         else:
+            # Skip path to base if one is not found
             path_to_base = []
             path_to_base_conf_per_arm = start_configs
 
-        path_to_above_position = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], arms_to_above_position_configs,
-                                                         start_configs=path_to_base_conf_per_arm, max_attempts=MAX_ATTEMPTS_TO_FIND_PATH, collision_distance=0.15)
+        path_to_above_position = self.arms_manager.birrt(
+            [self.arms[arm_idx] for arm_idx in arms_idx],
+            goal_positiosn=arms_to_above_position_configs,
+            start_configs=path_to_base_conf_per_arm,
+            max_attempts=MAX_ATTEMPTS_TO_FIND_PATH,
+            collision_distance=0.15
+        )
+
         if path_to_above_position is None:
             self.trash_generator.remove_trash()
             return None
