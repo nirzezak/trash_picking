@@ -165,28 +165,25 @@ class BackgroundEnv(Environment):
         above_pos_conf_per_arm = split_arms_conf(path_to_above[-1], len(arms_idx))
 
         # ------- Block of code for horizontal rotation of the arms -------
-        rotate_arm_1 = above_pos_conf_per_arm[0].copy()  # TODO - not only 2 arm case
-        rotate_arm_2 = above_pos_conf_per_arm[1].copy()
+        curr_confs_lst = above_pos_conf_per_arm  # list of the current configurations (for each arm)
 
-        rotation_confs = []
-        for i, j in zip(np.linspace(rotate_arm_1[0], np.pi, num=100, endpoint=True), np.linspace(rotate_arm_2[0], -np.pi, num=100, endpoint=True)):
-            # TODO - rotate by vertical_offset_from_bin_lst
-            rotation1 = rotate_arm_1.copy()
-            rotation1[0] = i
-
-            rotation2 = rotate_arm_2.copy()
-            rotation2[0] = j
-
-            rotation_confs.append(rotation1 + rotation2)
+        rotation_confs = []  # list of the configurations for the rotation (each conf includes all arms)
+        iter = 25
+        for i in range(iter):
+            next_confs_lst = []  # list of the next configurations (for each arm)
+            for curr_conf, total_degree in zip(curr_confs_lst, rotate_degree_lst):
+                next_conf = curr_conf.copy()
+                next_conf[0] += total_degree / iter  # horizontal rotation
+                next_confs_lst.append(next_conf)
+            next_conf_all_arms_merged = [val for conf in next_confs_lst for val in conf]
+            rotation_confs.append(next_conf_all_arms_merged)
+            curr_confs_lst = next_confs_lst
 
         # get list of the arms configs when they reach the "rotated position"
         rotated_conf_per_arm = split_arms_conf(rotation_confs[-1], len(arms_idx))
 
-        # TODO: Old code of moving to bin
-        # path_to_bin = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], end_poses, start_configs=above_pos_conf_per_arm,
-        #                                max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
-
         # ------- Find a path from the rotation end point to bin by BIRRT -------
+        # TODO: we don't really need this, and it makes the movement uglier
         path_to_bin = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], end_poses,
                                               start_configs=rotated_conf_per_arm,
                                               max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
