@@ -15,7 +15,7 @@ from trash_bin import Bin
 
 ARM_TO_TRASH_MAX_DIST = [0.1, 0.1, 0.1]  # TODO - find real values
 TRASH_INIT_Y_VAL = -1  # TODO - make this dynamic
-ARMS_SAFETY_OFFSET = [0, 0.15, 0.05]
+ARMS_SAFETY_OFFSET = [0, 0.15, 0]
 
 TICKS_TO_TRASH_LOW_BOUND = 700  # lower bound estimation for number of ticks it takes for an arm to move to a
 # trash on the conveyor. Used to determine whether an arm can possibly do some task
