@@ -1,0 +1,44 @@
+[
+  {
+    "loc": [1.0, -1.25, 0.1],
+    "type": "PAPER"
+  },
+  {
+    "loc": [1.5, -0.5, 0.1],
+    "type": "ELECTRONIC"
+  },
+  {
+    "loc": [1.0, 0.25, 0.1],
+    "type": "PLASTIC"
+  },
+  {
+    "loc": [1.5, 1.0, 0.1],
+    "type": "ELECTRONIC"
+  },
+  {
+    "loc": [1.0, 1.75, 0.1],
+    "type": "PAPER"
+  },
+
+  {
+    "loc": [-1.0, -1.25, 0.1],
+    "type": "PAPER"
+  },
+  {
+    "loc": [-1.5, -0.5, 0.1],
+    "type": "ELECTRONIC"
+  },
+  {
+    "loc": [-1.0, 0.25, 0.1],
+    "type": "PLASTIC"
+  },
+  {
+    "loc": [-1.5, 1.0, 0.1],
+    "type": "ELECTRONIC"
+  },
+  {
+    "loc": [-1.0, 1.75, 0.1],
+    "type": "PAPER"
+  }
+
+]
