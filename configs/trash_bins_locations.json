@@ -4,7 +4,7 @@
     "type": "PAPER"
   },
   {
-    "loc": [2.0, -0.5, 0.1],
+    "loc": [1.5, -0.5, 0.1],
     "type": "ELECTRONIC"
   },
   {
@@ -12,7 +12,7 @@
     "type": "PLASTIC"
   },
   {
-    "loc": [2.0, 1.0, 0.1],
+    "loc": [1.5, 1.0, 0.1],
     "type": "ELECTRONIC"
   },
   {
@@ -20,7 +20,7 @@
     "type": "PAPER"
   },
   {
-    "loc": [2.0, 2.5, 0.1],
+    "loc": [1.5, 2.5, 0.1],
     "type": "ELECTRONIC"
   },
   {
@@ -28,7 +28,7 @@
     "type": "PLASTIC"
   },
   {
-    "loc": [2.0, 4.0, 0.1],
+    "loc": [1.5, 4.0, 0.1],
     "type": "ELECTRONIC"
   },
   {
@@ -42,7 +42,7 @@
     "type": "PAPER"
   },
   {
-    "loc": [-2.0, -0.5, 0.1],
+    "loc": [-1.5, -0.5, 0.1],
     "type": "ELECTRONIC"
   },
   {
@@ -50,7 +50,7 @@
     "type": "PLASTIC"
   },
   {
-    "loc": [-2.0, 1.0, 0.1],
+    "loc": [-1.5, 1.0, 0.1],
     "type": "ELECTRONIC"
   },
   {
@@ -58,7 +58,7 @@
     "type": "PAPER"
   },
   {
-    "loc": [-2.0, 2.5, 0.1],
+    "loc": [-1.5, 2.5, 0.1],
     "type": "ELECTRONIC"
   },
   {
@@ -66,7 +66,7 @@
     "type": "PLASTIC"
   },
   {
-    "loc": [-2.0, 4.0, 0.1],
+    "loc": [-1.5, 4.0, 0.1],
     "type": "ELECTRONIC"
   },
   {
