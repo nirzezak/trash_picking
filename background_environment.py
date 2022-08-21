@@ -238,11 +238,12 @@ class BackgroundEnv(Environment):
         Returns True if arm can reach the desired location and orientation, False otherwise
         """
 
-        if self.arms[arm_idx].is_right_arm:
-            orientation = p.getQuaternionFromEuler([0, np.pi / 2, -np.pi / 2])
+        if orientation is None:
+            if self.arms[arm_idx].is_right_arm:
+                orientation = p.getQuaternionFromEuler([0, np.pi / 2, -np.pi / 2])
 
-        else:
-            orientation = p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])
+            else:
+                orientation = p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])
 
         # Save original state of arm
         original_values = self.arms[arm_idx].get_arm_joint_values()
