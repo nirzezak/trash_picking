@@ -118,7 +118,7 @@ class BackgroundEnv(Environment):
 
         path_to_above_position = self.arms_manager.birrt(
             [self.arms[arm_idx] for arm_idx in arms_idx],
-            goal_positiosn=arms_to_above_position_configs,
+            goal_positions=arms_to_above_position_configs,
             start_configs=path_to_base_conf_per_arm,
             max_attempts=MAX_ATTEMPTS_TO_FIND_PATH,
             collision_distance=0.15
