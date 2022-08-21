@@ -2,6 +2,8 @@ import logging
 import time
 import pybullet as p
 import numpy as np
+
+import utils
 from environment import Environment
 from multiarm_planner.multiarm_environment import split_arms_conf
 
@@ -114,23 +116,47 @@ class BackgroundEnv(Environment):
 
         @returns a list of paths to appropriate bins, same order as in arms_idx
         if no path found, return None.
-        TODO - Right now the function assumes that we run this with only one arm
-        """
 
+        Assumes that there are at most 2 arms
+        """
+        # The path:
+        # 1. Lowering/raising vertically (to avoid collisions and to be above the trash bin)
+        # 2. Horizontal rotation to the direction of the bin
+        # 3. Path to the exact bin location by BIRRT
+
+        curr_arms = [self.arms[arm_idx] for arm_idx in arms_idx]
+
+        # For each arm, find the better rotation angle (better = shorter path)
+        rotate_degree_lst = [self.find_horizontal_rotation_degree(arm, bin_dst)
+                             for arm, bin_dst in zip(curr_arms, bin_locations)]
+
+        # Check if the arms will rotate to the same spot
+        # if so, we will lower/raise the arms (vertically) to avoid collision
+        if self.is_rotation_to_the_same_point(curr_arms, rotate_degree_lst):
+            # --> len(curr_arms) = 2
+            # Set different y offset to avoid collision
+            vertical_offset_from_bin_lst = [0.65, 1.1]
+        else:
+            # The arms turn to different places, so they won't collide, we can use normal y offset
+            vertical_offset_from_bin_lst = [0.85 for _ in range(len(curr_arms))]
+
+        # Find end poses and above poses
+        # End pose - the end poses of the arms (where they will release the trash)
+        # Above pose - same as the pose when picking the trash, except that there is an additional offset in the y axis
         above_poses = []
         end_poses = []
-        for arm_idx, bin_loc in zip(arms_idx, bin_locations):
+        for arm, bin_loc, offset_from_bin in zip(curr_arms, bin_locations, vertical_offset_from_bin_lst):
             bin_loc = list(bin_loc)
-            bin_loc[2] += 0.85
+            bin_loc[2] += offset_from_bin
 
             end_poses.append([bin_loc, p.getQuaternionFromEuler([0, np.pi / 2, -np.pi / 2])])
 
             # The above pose should only be higher vertically
-            current_pose = self.arms[arm_idx].get_end_effector_pose()
+            current_pose = arm.get_end_effector_pose().copy()
             current_pose[0][2] = bin_loc[2]
             above_poses.append(current_pose)
 
-        # Attempt to first pick up the trash higher only vertically
+        # ------- Attempt to first pick up the trash higher only vertically -------
         path_to_above = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], above_poses, start_configs, max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
         if path_to_above is None:
             return None
@@ -138,12 +164,13 @@ class BackgroundEnv(Environment):
         # get list of the arms configs when they reach the "above position"
         above_pos_conf_per_arm = split_arms_conf(path_to_above[-1], len(arms_idx))
 
-        # Block of code for rotation arms
-        rotate_arm_1 = above_pos_conf_per_arm[0].copy()
+        # ------- Block of code for horizontal rotation of the arms -------
+        rotate_arm_1 = above_pos_conf_per_arm[0].copy()  # TODO - not only 2 arm case
         rotate_arm_2 = above_pos_conf_per_arm[1].copy()
 
         rotation_confs = []
-        for i, j in zip(np.linspace(rotate_arm_1[0], np.pi, num=100, endpoint=True), np.linspace(rotate_arm_2[0], np.pi, num=100, endpoint=True)):
+        for i, j in zip(np.linspace(rotate_arm_1[0], np.pi, num=100, endpoint=True), np.linspace(rotate_arm_2[0], -np.pi, num=100, endpoint=True)):
+            # TODO - rotate by vertical_offset_from_bin_lst
             rotation1 = rotate_arm_1.copy()
             rotation1[0] = i
 
@@ -159,6 +186,7 @@ class BackgroundEnv(Environment):
         # path_to_bin = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], end_poses, start_configs=above_pos_conf_per_arm,
         #                                max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
 
+        # ------- Find a path from the rotation end point to bin by BIRRT -------
         path_to_bin = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], end_poses,
                                               start_configs=rotated_conf_per_arm,
                                               max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
@@ -206,3 +234,29 @@ class BackgroundEnv(Environment):
             return False
 
         return True
+
+    def find_horizontal_rotation_degree(self, arm, bin_loc):
+        """
+        Returns the best direction (1 or -1) for the arm to move to the bin, only by moving joint 0
+        """
+        effector_loc = arm.get_end_effector_pose()[0]
+        arm_base_loc = arm.pose[0]
+
+        return utils.calc_angle(effector_loc[:2], arm_base_loc[:2], bin_loc[:2])
+
+    @staticmethod
+    def is_rotation_to_the_same_point(arms, rotate_degree_lst):
+        """
+        @param arms: the arms that will rotate
+        @param rotate_degree_lst: the rotation degree for each arm
+        @return: True if the arms rotates to the same point, False otherwise
+        """
+        rotation_to_same_point = False
+        if len(arms) == 2 and rotate_degree_lst[0] * rotate_degree_lst[1] < 0:
+            # 2 arm task, and arms rotates to opposite directions
+            arms_y_loc = [arm.pose[0][1] for arm in arms]
+
+            if arms_y_loc[1] < arms_y_loc[0] and rotate_degree_lst[1] > 0 or \
+                    arms_y_loc[1] > arms_y_loc[0] and rotate_degree_lst[0] > 0:
+                rotation_to_same_point = True
+        return rotation_to_same_point
