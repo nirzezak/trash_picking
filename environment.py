@@ -19,6 +19,8 @@ URDF_FILES_PATH = "models"
 CONVEYOR_LOCATION = [0, 2, 0.25]
 BINS_LOCATIONS = [[1.5, 0.0, 0.1], [-1.5, 0.0, 0.1]]
 ARMS_IDX_PAIRS = [[0, 1], [2, 3], [4, 5], [6, 7]]
+LEFT_ARMS_BASE_CONFIG = [-0.6, -0.4, 0.6, 1.35, 1.55, 0.95]
+RIGHT_ARMS_BASE_CONFIG = [math.pi - 0.6, -0.4, 0.6, 1.35, 1.55, 0.95]
 
 TRASH_SUMMON_INTERVAL = 2500
 FRAME_RATE = 1 / 240.
@@ -85,6 +87,18 @@ class Environment(object):
         with open(self.arms_path, 'r') as f:
             arms_data = json.load(f)
 
-        orientation = p.getQuaternionFromEuler([0, 0, 0])
+        ur5_list = []
+        for arm in arms_data:
+            orientation = p.getQuaternionFromEuler([0, 0, 0])
 
-        return [UR5.UR5(self.p_simulation, (arm['loc'], orientation)) for arm in arms_data]
+            if arm['loc'][0] > 0:
+                ur5_arm = UR5.UR5(self.p_simulation, (arm['loc'], orientation))
+                ur5_arm.set_base_config(RIGHT_ARMS_BASE_CONFIG)
+
+            else:
+                ur5_arm = UR5.UR5(self.p_simulation, (arm['loc'], orientation))
+                ur5_arm.set_base_config(LEFT_ARMS_BASE_CONFIG)
+
+            ur5_list.append(ur5_arm)
+
+        return ur5_list
