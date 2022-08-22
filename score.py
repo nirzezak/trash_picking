@@ -13,9 +13,9 @@ class Score(object):
         msg = f'score = {self.score}'
         self.id = p.addUserDebugText(msg, self.location, textColorRGB=self.color)
 
-    def increase_score(self):
+    def increase_score(self, amount=1):
         p.removeUserDebugItem(self.id)
-        self.score += 1
+        self.score += amount
         msg = f'score = {self.score}'
         self.id = p.addUserDebugText(msg, self.location, textColorRGB=self.color,
                                      replaceItemUniqueId=self.id)

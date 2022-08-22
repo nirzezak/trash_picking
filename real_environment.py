@@ -47,6 +47,8 @@ class RealEnv(Environment):
         self.p_simulation.stepSimulation()
         self.conveyor.convey()
         self.remove_lost_cause_trash()
+        if ticker.now() % 100 == 0:
+            self.check_inserted_trash()
         ticker.tick()
 
     def remove_lost_cause_trash(self):
@@ -56,3 +58,28 @@ class RealEnv(Environment):
             if body_uid not in [self.conveyor, *self.bins]:
                 self.trash_generator.remove_trash(body_uid)
                 self.task_manager.remove_trash(body_uid)
+
+    def check_inserted_trash(self):
+        good_trash = set()
+        bad_trash = set()
+        for trash_bin in self.bins:
+            contact_points = self.p_simulation.getContactPoints(bodyA=trash_bin.id)
+            for point in contact_points:
+                contact_point_on_trash = point[5]
+                trash_id = point[2]
+                if not trash_bin.is_inside_trash_bin(contact_point_on_trash):
+                    continue
+                elif self.trash_generator.get_trash(trash_id).trash_type != trash_bin.trash_type:
+                    bad_trash.add(trash_id)
+                else:
+                    good_trash.add(trash_id)
+
+        total_score_change = len(good_trash) * 1 - len(bad_trash) * 3
+        self.score.increase_score(total_score_change)
+
+        for trash in good_trash:
+            self.trash_generator.remove_trash(trash)
+            self.task_manager.remove_trash(trash)
+        for trash in bad_trash:
+            self.trash_generator.remove_trash(trash)
+            self.task_manager.remove_trash(trash)

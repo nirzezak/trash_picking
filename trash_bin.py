@@ -39,3 +39,13 @@ class Bin(object):
 
         self.p_simulation.changeVisualShape(self.id, -1, rgbaColor=rgba)
 
+    def is_inside_trash_bin(self, location):
+        """
+        Checks if the given location is inside the trash bin
+        """
+
+        x_diff = abs(location[0] - self.location[0])
+        y_diff = abs(location[1] - self.location[1])
+
+        return x_diff < 0.205 and y_diff < 0.29 and location[2] < 0.3
+
