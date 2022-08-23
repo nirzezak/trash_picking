@@ -26,7 +26,9 @@ class RealEnv(Environment):
         back_env_args = EnvironmentArgs(back_connection_mode, env_args.arms_path, env_args.trash_bins_path)
         self.task_manager = ParallelTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args)
         self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL)
-        self.score = Score()
+        self.correct = Score('correct', color=[0, 1, 0], location=[0, 0, 2])
+        self.wrong = Score('wrong', color=[1, 0, 0], location=[0, 0, 2.2])
+        self.lost = Score('lost', color=[0, 0, 1], location=[0, 0, 2.4])
         self.summon_component = FixedAmountSummonComponent(self.trash_generator, self.task_manager, self.summon_tick,
                                                            trash=TrashConfig.METAL_CAN, amount=2)
         time.sleep(3)
@@ -54,10 +56,15 @@ class RealEnv(Environment):
     def remove_lost_cause_trash(self):
         contact_points = self.p_simulation.getContactPoints(bodyA=self.plane)
         body_uids = set([point[2] for point in contact_points])
+
+        lost_trash_count = 0
         for body_uid in body_uids:
             if body_uid not in [self.conveyor, *self.bins]:
                 self.trash_generator.remove_trash(body_uid)
                 self.task_manager.remove_trash(body_uid)
+                lost_trash_count += 1
+
+        self.lost.increase_score(lost_trash_count)
 
     def check_inserted_trash(self):
         good_trash = set()
@@ -74,8 +81,8 @@ class RealEnv(Environment):
                 else:
                     good_trash.add(trash_id)
 
-        total_score_change = len(good_trash) * 1 - len(bad_trash) * 3
-        self.score.increase_score(total_score_change)
+        self.correct.increase_score(len(good_trash))
+        self.wrong.increase_score(len(bad_trash))
 
         for trash in good_trash:
             self.trash_generator.remove_trash(trash)
