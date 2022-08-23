@@ -656,3 +656,24 @@ class UR5:
         self._is_right_arm = self.get_pose()[0][0] > 0
 
         return self._is_right_arm
+
+    def get_gripped_ids(self, grip_threshold=3e-4):
+        """
+        @param grip_threshold: the minimum distance from gripper to consider as "gripped"
+
+        Returns set of IDs that the gripper is supposedly gripping
+        """
+        if self.end_effector is None:
+            return None
+
+        contact_points = self.p_simulation.getContactPoints(bodyA=self.end_effector.body_id)
+        contact_ids = set()
+
+        for contact_point in contact_points:
+            contact_id = contact_point[2]
+            contact_distance = contact_point[8]
+
+            if contact_distance < grip_threshold:
+                contact_ids.add(contact_id)
+
+        return contact_ids

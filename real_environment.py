@@ -26,8 +26,7 @@ class RealEnv(Environment):
         self.task_manager = SimpleTaskManager(self.arms, self.bins, self.conveyor.speed, background_env)
         self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL)
         self.score = Score()
-        self.summon_component = FixedAmountSummonComponent(self.trash_generator, self.task_manager, self.summon_tick,
-                                                           trash=TrashConfig.METAL_CAN, amount=2)
+        self.summon_component = RandomSummonComponent(self.trash_generator, self.task_manager, self.summon_tick)
 
     def step(self):
         self.summon_component.step()
@@ -41,6 +40,14 @@ class RealEnv(Environment):
             if arm.state == ArmState.PICKING_TRASH:
                 # Stop conveying trash that is being picked up
                 self.conveyor.unconvey(arm.curr_task.trash.get_id())
+
+            if arm.state == ArmState.MOVING_TO_BIN:
+                gripped_ids = arm.get_gripped_ids()
+                trash_id = arm.curr_task.trash.get_id()
+
+                if trash_id not in gripped_ids and trash_id in self.conveyor.dont_convey:
+                    # Convey trash that was missed
+                    self.conveyor.dont_convey.remove(trash_id)
 
         self.p_simulation.stepSimulation()
         self.conveyor.convey()
