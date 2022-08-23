@@ -54,3 +54,7 @@ class RealEnv(Environment):
             if body_uid not in [self.conveyor, *self.bins]:
                 self.trash_generator.remove_trash(body_uid)
                 self.task_manager.remove_trash(body_uid)
+
+                if body_uid in self.conveyor.dont_convey:
+                    # Remove ID from dont_convey list because newly spawned trash can have the same ID as old removed trash
+                    self.conveyor.dont_convey.remove(body_uid)
