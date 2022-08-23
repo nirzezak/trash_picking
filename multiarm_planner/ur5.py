@@ -376,15 +376,16 @@ class UR5:
     def end_task(self):
         self.curr_task.state = TaskState.DONE
 
-        # reset current task fields
-        self.curr_task = None
-        self.paths = None
-
         # For ticks statistics
         if self.print_ticks_stat:
             print(f'Total ticks: {self.current_tick}')
+            print(f'Estimated ticks: {self.curr_task.len_in_ticks}')
             for k, v in self.ticks_stat.items():
                 print(f'{k}: {v}')
+
+        # reset current task fields
+        self.curr_task = None
+        self.paths = None
 
     def ur5_step(self):
         self.current_tick += 1
