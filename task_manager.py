@@ -720,6 +720,7 @@ class ParallelTaskManager(SimpleTaskManager):
     def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env_args: EnvironmentArgs):
         super(ParallelTaskManager, self).__init__(arms, bins, trash_velocity, background_env_args)
         self.task_context = {}
+        self.sync_back_env = BackgroundEnv(background_env_args)
 
     def _create_arm_pairs(self) -> List[ArmPair]:
         pairs = []
@@ -787,13 +788,17 @@ class ParallelTaskManager(SimpleTaskManager):
             #  However, this means that we can't know before we send a calculation request whether or not the arms
             #  reach or not. This means that we would need to send the request to each pair in order to find a pair
             #  that can actually reach, which sucks since we might do the calculation several times for no reason...
-
-            # 2. Send a motion plan calculation request
-            bin_dst_loc = [self.closest_bins[arm][trash.trash_type] for trash, arm in zip(trash_pair, pair.arms)]
-            arm_start_conf = [arm.get_arm_joint_values() for arm in pair.arms]
+            # 2. Check if the arms can reach the trash
             trash_conf = [trash.get_trash_config_at_loc(point) for trash, point in
                           zip(trash_pair, trash_pair_picking_points)]
             real_arm_configs = [arm.get_arm_joint_values() for arm in self.arms]
+
+            if not self.sync_back_env.can_arms_do_task(pair.arms_idx, trash_conf, real_arm_configs):
+                continue
+
+            # 3. Send a motion plan calculation request
+            bin_dst_loc = [self.closest_bins[arm][trash.trash_type] for trash, arm in zip(trash_pair, pair.arms)]
+            arm_start_conf = [arm.get_arm_joint_values() for arm in pair.arms]
 
             # Generate only once, but only if we actually managed to find suitable arms
             if task_id is None:

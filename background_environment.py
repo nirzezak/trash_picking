@@ -18,6 +18,44 @@ class BackgroundEnv(Environment):
         """
         super().__init__(env_args.connection_mode, 0, env_args.arms_path, env_args.trash_bins_path, set_pybullet_utils_p=True)
 
+    def can_arms_do_task(self, arms_idx, trash, real_arms_configs):
+        """
+        Check if an arm can do a task, by checking if the arms reach all of the
+        trash objects
+
+        @param arms_idx: arm indices to find paths for
+        @param trash: list of trash configs, same order as in arms_idx
+        @param real_arms_configs: list of arms in the real environment, same order as in the background environment
+
+        @returns True if they reach, False otherwise
+        """
+        if real_arms_configs is not None:
+            self.sync_arm_positions(real_arms_configs)
+
+        arms_to_above_position_configs = []
+
+        for arm_idx, trash_conf in zip(arms_idx, trash):
+            trash = self.trash_generator.summon_trash(trash_conf)
+            grip_point = trash.get_curr_gripping_points()[0]
+            self.trash_generator.remove_trash()
+
+            above_grip_point = grip_point.copy()
+            above_grip_point[2] += 0.3
+
+            if self.arms[arm_idx].is_right_arm:
+                orientation = p.getQuaternionFromEuler([0, np.pi / 2, -np.pi / 2])
+
+            else:
+                orientation = p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])
+
+            end_pos = [above_grip_point, orientation]
+            arms_to_above_position_configs.append(end_pos)
+
+        return all(
+            self.does_arm_reach(arm_idx, arms_to_above_position_configs[idx][0], arms_to_above_position_configs[idx][1])
+            for idx, arm_idx in enumerate(arms_idx)
+        )
+
     def compute_motion_plan(self, arms_idx, trash, bin_locations, start_configs, real_arms_configs=None):
         """"
         @param arms_idx: arm indices to find paths for
