@@ -683,6 +683,17 @@ class SimpleTaskManager(TaskManagerComponent):
 
     @staticmethod
     def _get_ticks_for_path_to_trash_heuristic(path_len: int) -> int:
+        """
+        @param path_len: length of the path to trash configurations list
+        @return: estimation for number of ticks it would take to do this path
+
+        The path is built from ur5 configuration list,
+        each configuration change takes some number of ticks (not fixed).
+        For each path we can calculate the series of #tick it took for each configuration change.
+        We noticed that for MOVING_TO_TRASH path, this "#ticks per configuration" series has a fixed pattern
+        (even when using different trash locations)
+        The pattern we found: 2,x,...,x,1,x,... where x is 47.4 in expectation (#ticks per conf series)
+        """
         if path_len < 10:
             print('WARNING: unexpected path to trash length, enhance the get_ticks_for_path_to_trash_heuristic')
             return path_len * 40  # arbitrary, we didn't see such examples
@@ -690,6 +701,17 @@ class SimpleTaskManager(TaskManagerComponent):
 
     @staticmethod
     def _get_ticks_for_path_to_bin_heuristic(path_len: int) -> int:
+        """
+        @param path_len: length of the path to bin configurations list
+        @return: estimation for number of ticks it would take to do this path
+
+        The path is built from ur5 configuration list,
+        each configuration change takes some number of ticks (not fixed).
+        For each path we can calculate the series of #tick it took for each configuration change.
+        We noticed that for MOVING_TO_BIN path, this "#ticks per configuration" series has a fixed pattern
+        (even when using different trash locations)
+        The pattern we found: 1,47,48,48,... (#ticks per conf series)
+        """
         if path_len < 3:
             print('WARNING: unexpected path to trash length, enhance the get_ticks_for_path_to_bin_heuristic')
             return path_len * 40  # arbitrary, we didn't see such examples
