@@ -85,11 +85,11 @@ class Environment(object):
             orientation = p.getQuaternionFromEuler([0, 0, 0])
 
             if arm['loc'][0] > 0:
-                ur5_arm = UR5.UR5(self.p_simulation, (arm['loc'], orientation))
+                ur5_arm = ur5.UR5(self.p_simulation, (arm['loc'], orientation))
                 ur5_arm.set_base_config(RIGHT_ARMS_BASE_CONFIG)
 
             else:
-                ur5_arm = UR5.UR5(self.p_simulation, (arm['loc'], orientation))
+                ur5_arm = ur5.UR5(self.p_simulation, (arm['loc'], orientation))
                 ur5_arm.set_base_config(LEFT_ARMS_BASE_CONFIG)
 
             ur5_list.append(ur5_arm)
