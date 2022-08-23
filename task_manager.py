@@ -6,6 +6,7 @@ import numpy as np
 from typing import List, Dict, Tuple, Optional
 
 import ticker
+from configs import trash_configs
 from multiarm_planner.multiarm_environment import split_arms_conf_lst
 from background_environment import BackgroundEnv
 from multiarm_planner.ur5 import Robotiq2F85, UR5
@@ -14,7 +15,6 @@ from trash import Trash
 from trash_bin import Bin
 
 ARM_TO_TRASH_MAX_DIST = [0.1, 0.1, 0.1]  # TODO - find real values
-TRASH_INIT_Y_VAL = -1  # TODO - make this dynamic
 ARMS_SAFETY_OFFSET = [0, 0.15, 0]
 
 TICKS_TO_TRASH_LOW_BOUND = 700  # lower bound estimation for number of ticks it takes for an arm to move to a
@@ -344,7 +344,7 @@ class AdvancedTaskManager(TaskManagerComponent):
         - the PNR in this case is a value on the 2nd axis.
         """
         for trash in self.single_trash:
-            if trash.get_curr_position()[1] - TRASH_INIT_Y_VAL >= self.max_dist_between_trash_pair_y_axis:
+            if trash.get_curr_position()[1] - trash_configs.TRASH_INIT_Y_VAL >= self.max_dist_between_trash_pair_y_axis:
                 self.single_trash.remove(trash)
                 # try to assign a single trash task
                 self.add_trash_task_to_arms_group([trash], ticker.now())
