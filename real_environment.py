@@ -7,7 +7,8 @@ import ticker
 from background_environment import BackgroundEnv
 from environment import Environment
 from score import Score
-from summon_component import RandomSummonComponent, DeterministicSummonComponent, FixedAmountSummonComponent
+from summon_component import RandomSummonComponent, DeterministicSummonComponent, FixedAmountSummonComponent, \
+    TrashListSummonComponent
 from task_manager import AdvancedTaskManager, SimpleTaskManager
 from configs.trash_configs import TrashConfig
 from multiarm_planner.ur5 import ArmState
@@ -23,7 +24,8 @@ class RealEnv(Environment):
         # Manage the real environment: clocks, and scoreboard
         back_connection_mode = p.DIRECT if connection_mode == p.GUI else p.GUI
         background_env = BackgroundEnv(back_connection_mode, arms_path, trash_bins_path)
-        self.task_manager = SimpleTaskManager(self.arms, self.bins, self.conveyor.speed, background_env)
+        arms_idx_pairs = [[a, b] for a, b in zip(range(0, len(self.arms), 2), range(1, len(self.arms), 2))]
+        self.task_manager = AdvancedTaskManager(self.arms, arms_idx_pairs, self.bins, self.conveyor.speed, background_env)
         self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL)
         self.score = Score()
         self.summon_component = RandomSummonComponent(self.trash_generator, self.task_manager, self.summon_tick)

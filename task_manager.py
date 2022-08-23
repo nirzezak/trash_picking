@@ -459,7 +459,8 @@ class SimpleTaskManager(TaskManagerComponent):
     debugging of everything else.
     """
 
-    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env: BackgroundEnv):
+    def __init__(self, arms: List[UR5], arms_idx_pairs: List[List[int]], bins: List[Bin], trash_velocity: float,
+                 background_env: BackgroundEnv):
         """
         @param arms: A list of all of the available arms
         @param bins: A list of all of the available bins
@@ -469,7 +470,7 @@ class SimpleTaskManager(TaskManagerComponent):
         axis 0 - x, axis 1 - y, axis 2 - z
         """
         self.arms = arms
-        self.arms_pairs_idx = list(zip(range(0, len(self.arms), 2), range(1, len(self.arms), 2)))
+        self.arms_pairs_idx = arms_idx_pairs
         self.arms_pairs = list(zip(self.arms[::2], self.arms[1::2]))
         self.bins = bins
         self.trash_velocity = trash_velocity
