@@ -173,7 +173,7 @@ class BackgroundEnv(Environment):
         if self.is_rotation_to_the_same_point(curr_arms, rotate_degree_lst):
             # --> len(curr_arms) = 2
             # Set different y offset to avoid collision
-            vertical_offset_from_bin_lst = [0.65, 1.1]
+            vertical_offset_from_bin_lst = [0.75, 1.2]
         else:
             # The arms turn to different places, so they won't collide, we can use normal y offset
             vertical_offset_from_bin_lst = [0.85 for _ in range(len(curr_arms))]
