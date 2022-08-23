@@ -24,7 +24,9 @@ class RandomSummonComponent(SummonComponent):
     def step(self):
         if ticker.now() % self.summon_tick == 0:
             config = random.choice(list(TrashConfig))
-            trash = self.trash_generator.summon_trash(config.value)
+            sign = random.choice([-1, 1])
+            signed_value = config.signed_value(sign)
+            trash = self.trash_generator.summon_trash(signed_value)
             self.task_manager.add_trash(trash)
 
 

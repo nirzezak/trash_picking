@@ -71,11 +71,17 @@ class BackgroundEnv(Environment):
             above_grip_point = grip_point.copy()
             above_grip_point[2] += 0.3
 
-            end_pos = [above_grip_point, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]  # This orientation is "from above"
+            if self.arms[arm_idx].is_right_arm:
+                orientation = p.getQuaternionFromEuler([0, np.pi / 2, -np.pi / 2])
+
+            else:
+                orientation = p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])
+
+            end_pos = [above_grip_point, orientation]  # This orientation is "from above"
             arms_to_above_position_configs.append(end_pos)
 
             # Then hopefully find a path that only lowers the arm to pick up the trash
-            end_pos2 = [grip_point, p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])]
+            end_pos2 = [grip_point, orientation]
             arms_to_actual_goal_configs.append(end_pos2)
 
         # Verify the arms can reach the above position - assume this is good enough and that the arms will be
@@ -86,8 +92,40 @@ class BackgroundEnv(Environment):
         ):
             return None
 
-        path_to_above_position = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], arms_to_above_position_configs,
-                                                         start_configs=start_configs, max_attempts=MAX_ATTEMPTS_TO_FIND_PATH, collision_distance=0.15)
+        # First move to base config, and only then look for path to trash
+        goal_configs = []
+        for arm_idx, position in zip(arms_idx, arms_to_above_position_configs):
+            goal_config = self.arms[arm_idx].inverse_kinematics(*position)
+            base_config = self.arms[arm_idx].base_config.copy()
+
+            # Prevent overshooting by controlling the rotation of the arm (joint 1) - rotate only as much as needed to pick up the trash
+            base_config[0] = goal_config[0]
+
+            goal_configs.append(base_config)
+
+        path_to_base = self.arms_manager.birrt(
+            [self.arms[arm_idx] for arm_idx in arms_idx],
+            goal_configs=goal_configs,
+            start_configs=start_configs, max_attempts=MAX_ATTEMPTS_TO_FIND_PATH,
+            collision_distance=0.15
+        )
+
+        if path_to_base is not None:
+            path_to_base_conf_per_arm = split_arms_conf(path_to_base[-1], n_arms)
+
+        else:
+            # Skip path to base if one is not found
+            path_to_base = []
+            path_to_base_conf_per_arm = start_configs
+
+        path_to_above_position = self.arms_manager.birrt(
+            [self.arms[arm_idx] for arm_idx in arms_idx],
+            goal_positions=arms_to_above_position_configs,
+            start_configs=path_to_base_conf_per_arm,
+            max_attempts=MAX_ATTEMPTS_TO_FIND_PATH,
+            collision_distance=0.15
+        )
+
         if path_to_above_position is None:
             self.trash_generator.remove_trash()
             return None
@@ -106,7 +144,7 @@ class BackgroundEnv(Environment):
         # removes all trash
         self.trash_generator.remove_trash()
 
-        return path_to_above_position + path_from_above_pos_to_actual_pos
+        return path_to_base + path_to_above_position + path_from_above_pos_to_actual_pos
 
     def compute_path_to_bin(self, arms_idx, bin_locations, start_configs):
         """"
@@ -208,16 +246,25 @@ class BackgroundEnv(Environment):
         @param arm_idx: idx of the arm to check the reach of
         @param location: the location that should be checked if arm reaches
         @param orientation: the orientation of the arm at the desired location
+        @param epsilon: threshold of comparison
 
         Returns True if arm can reach the desired location and orientation, False otherwise
         """
-        orientation = p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2]) if orientation is None else orientation
+
+        if orientation is None:
+            if self.arms[arm_idx].is_right_arm:
+                orientation = p.getQuaternionFromEuler([0, np.pi / 2, -np.pi / 2])
+
+            else:
+                orientation = p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])
 
         # Save original state of arm
         original_values = self.arms[arm_idx].get_arm_joint_values()
 
-        self.arms[arm_idx].set_arm_joints(self.arms[arm_idx].inverse_kinematics(location, orientation=orientation))
-        effector_position, effector_orientation = self.arms[arm_idx].get_end_effector_pose()
+        # Run IK 10 times to reach better solutions - TODO: not sure if this causes considerable slowdown, can lower from 10 iterations
+        for i in range(10):
+            self.arms[arm_idx].set_arm_joints(self.arms[arm_idx].inverse_kinematics(location, orientation=orientation))
+            effector_position, effector_orientation = self.arms[arm_idx].get_end_effector_pose()
 
         # Return arm to original state
         self.arms[arm_idx].set_arm_joints(original_values)

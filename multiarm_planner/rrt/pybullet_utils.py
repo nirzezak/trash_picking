@@ -230,9 +230,12 @@ def joint_from_movable(body, index):
 
 def is_circular(body, joint):
     joint_info = get_joint_info(body, joint)
-    if joint_info.jointType == p.JOINT_FIXED:
-        return False
-    return joint_info.jointUpperLimit < joint_info.jointLowerLimit
+    return joint_info.jointType == p.JOINT_REVOLUTE
+
+    # joint_info = get_joint_info(body, joint)
+    # if joint_info.jointType == p.JOINT_FIXED:
+    #     return False
+    # return joint_info.jointUpperLimit < joint_info.jointLowerLimit
 
 
 def get_joint_limits(body, joint):

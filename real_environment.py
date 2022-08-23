@@ -10,7 +10,7 @@ from score import Score
 from summon_component import RandomSummonComponent, DeterministicSummonComponent, FixedAmountSummonComponent
 from task_manager import AdvancedTaskManager, SimpleTaskManager
 from configs.trash_configs import TrashConfig
-from multiarm_planner.UR5 import ArmState
+from multiarm_planner.ur5 import ArmState
 
 
 class RealEnv(Environment):
