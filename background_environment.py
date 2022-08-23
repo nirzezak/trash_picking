@@ -301,11 +301,16 @@ class BackgroundEnv(Environment):
             arms_y_loc = [arm.pose[0][1] for arm in arms]
 
             if arms[0].is_right_arm:
-                if arms_y_loc[1] > arms_y_loc[0] and rotate_degree_lst[1] > 0 or \
-                        arms_y_loc[1] < arms_y_loc[0] and rotate_degree_lst[0] > 0:
+                if (
+                    (arms_y_loc[1] > arms_y_loc[0] and rotate_degree_lst[1] > 0) or
+                    (arms_y_loc[1] < arms_y_loc[0] and rotate_degree_lst[0] > 0)
+                ):
                     rotation_to_same_point = True
             else:
-                if arms_y_loc[1] < arms_y_loc[0] and rotate_degree_lst[1] > 0 or \
-                        arms_y_loc[1] > arms_y_loc[0] and rotate_degree_lst[0] > 0:
+                if (
+                    (arms_y_loc[1] < arms_y_loc[0] and rotate_degree_lst[1] > 0) or
+                    (arms_y_loc[1] > arms_y_loc[0] and rotate_degree_lst[0] > 0)
+                ):
                     rotation_to_same_point = True
+
         return rotation_to_same_point
