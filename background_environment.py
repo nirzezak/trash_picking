@@ -206,7 +206,7 @@ class BackgroundEnv(Environment):
         curr_confs_lst = above_pos_conf_per_arm  # list of the current configurations (for each arm)
 
         rotation_confs = []  # list of the configurations for the rotation (each conf includes all arms)
-        iter = 40
+        iter = 40  # more iterations --> lower rotation speed
         for i in range(iter):
             next_confs_lst = []  # list of the next configurations (for each arm)
             for curr_conf, total_degree in zip(curr_confs_lst, rotate_degree_lst):
