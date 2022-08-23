@@ -173,7 +173,7 @@ class BackgroundEnv(Environment):
         if self.is_rotation_to_the_same_point(curr_arms, rotate_degree_lst):
             # --> len(curr_arms) = 2
             # Set different y offset to avoid collision
-            vertical_offset_from_bin_lst = [0.65, 1.1]
+            vertical_offset_from_bin_lst = [0.75, 1.2]
         else:
             # The arms turn to different places, so they won't collide, we can use normal y offset
             vertical_offset_from_bin_lst = [0.85 for _ in range(len(curr_arms))]
@@ -300,7 +300,12 @@ class BackgroundEnv(Environment):
             # 2 arm task, and arms rotates to opposite directions
             arms_y_loc = [arm.pose[0][1] for arm in arms]
 
-            if arms_y_loc[1] < arms_y_loc[0] and rotate_degree_lst[1] > 0 or \
-                    arms_y_loc[1] > arms_y_loc[0] and rotate_degree_lst[0] > 0:
-                rotation_to_same_point = True
+            if arms[0].is_right_arm:
+                if arms_y_loc[1] > arms_y_loc[0] and rotate_degree_lst[1] > 0 or \
+                        arms_y_loc[1] < arms_y_loc[0] and rotate_degree_lst[0] > 0:
+                    rotation_to_same_point = True
+            else:
+                if arms_y_loc[1] < arms_y_loc[0] and rotate_degree_lst[1] > 0 or \
+                        arms_y_loc[1] > arms_y_loc[0] and rotate_degree_lst[0] > 0:
+                    rotation_to_same_point = True
         return rotation_to_same_point
