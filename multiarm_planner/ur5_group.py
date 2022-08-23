@@ -1,5 +1,4 @@
 import numpy as np
-import pybullet as p
 
 
 def split(a, n):
@@ -13,13 +12,13 @@ class UR5Group:
         self.active_controllers = ur5_arms[:]
         self.collision_distance = collision_distance
 
-    def setup(self, start_poses, start_joints, specific_ur5s=None):
+    def setup(self, start_joints, specific_ur5s=None):
         self.disable_all_ur5s()
-        self.enable_ur5s(count=len(start_poses), specific_ur5s=specific_ur5s)
-        for c, pose, joints in zip(
-                self.active_controllers, start_poses, start_joints):
+        self.enable_ur5s(count=len(specific_ur5s), specific_ur5s=specific_ur5s)
+        for c, joints in zip(
+                self.active_controllers, start_joints):
             c.set_arm_joints(joints)
-            # c.set_pose(pose) # I think that set_pose is useless at best and interferes at worst, so I removed it - @NIR
+
         return None
 
     def disable_all_ur5s(self):

@@ -1,12 +1,11 @@
 from itertools import chain
 from time import sleep
 
-from .obstacles import Obstacle
 from .ur5_group import UR5Group
 
 from .rrt.rrt import rrt
 from .rrt.rrt_connect import birrt
-from .rrt.pybullet_utils import configure_pybullet, draw_line, remove_all_markers
+from .rrt.pybullet_utils import configure_pybullet, draw_line
 
 from .robot_ur5_env import MultiRobotUR5Env
 from .mrdrrt.mrdrrt_planner import MRdRRTPlanner
@@ -46,32 +45,11 @@ class MultiarmEnvironment:
 
         self.ur5_group = UR5Group(ur5_arms)
 
-    def setup_run(self, ur5_poses, start_conf, target_eff_poses=None, obstacles=None, specific_ur5s=None):
-        if self.gui:
-            remove_all_markers()
-            for pose, target in zip(target_eff_poses, self.targets):
-                target.set_pose(pose)
+    def setup_run(self, start_conf, specific_ur5s=None):
+        self.ur5_group.setup(start_conf, specific_ur5s=specific_ur5s)
 
-        self.ur5_group.setup(ur5_poses, start_conf, specific_ur5s=specific_ur5s)
-
-        if obstacles is not None:
-            del self.obstacles
-            self.obstacles = Obstacle.load_obstacles(obstacles)
-
-    def birrt_from_task(self, task, rrt_only=False):
-        if rrt_only:
-            print("[MultiarmEnv] Running RRT for task {0}".format(task.id))
-        else:
-            print("[MultiarmEnv] Running BiRRT for task {0}".format(task.id))
-        return self._birrt(start_configs=task.start_config,
-                        goal_configs=task.goal_config,
-                        ur5_poses=task.base_poses,
-                        target_eff_poses=task.target_eff_poses,
-                        obstacles=task.obstacles, rrt_only=rrt_only)
-
-    def _birrt(self, ur5_arms, start_configs, goal_configs,
-              ur5_poses, target_eff_poses=None, obstacles=None, resolutions=0.1, timeout=10, rrt_only=False, collision_distance=None):
-        self.setup_run(ur5_poses, start_configs, target_eff_poses, obstacles, specific_ur5s=ur5_arms)
+    def _birrt(self, ur5_arms, start_configs, goal_configs, resolutions=0.1, timeout=10, rrt_only=False, collision_distance=None):
+        self.setup_run(start_configs, specific_ur5s=ur5_arms)
 
         extend_fn = self.ur5_group.get_extend_fn(resolutions)
         collision_fn = self.ur5_group.get_collision_fn(collision_distance=collision_distance)
@@ -113,44 +91,46 @@ class MultiarmEnvironment:
                                                timeout=timeout)
 
         if self.gui and path is not None:
-            self.demo_path(ur5_poses, start_configs, path)
+            self.demo_path(start_configs, path)
+
         return path, num_iterations, time
 
-    def mrdrrt_from_task(self, task, cache_roadmaps=True, num_prm_nodes=50, goal_biasing=0.2, timeout=300):
-        print("[MultiarmEnv] Running MrDRRT for task {0}".format(task.id))
-        return self._mrdrrt(start_configs=task.start_config,
-                           goal_configs=task.goal_config,
-                           ur5_poses=task.base_poses,
-                           target_eff_poses=task.target_eff_poses,
-                           obstacles=task.obstacles,
-                           task_path=task.task_path,
-                           cache_roadmaps=cache_roadmaps,
-                           num_prm_nodes=num_prm_nodes,
-                           goal_biasing=goal_biasing,
-                           timeout=timeout)
-                           
-    def _mrdrrt(self, ur5_arms, start_configs, goal_configs,
-              ur5_poses, target_eff_poses=None, obstacles=None,
-              resolutions=0.1, task_path=None, cache_roadmaps=True, num_prm_nodes=50, goal_biasing=0.2, timeout=300):
+    def _mrdrrt(
+        self,
+        ur5_arms,
+        start_configs,
+        goal_configs,
+        ur5_poses,
+        resolutions=0.1,
+        task_path=None,
+        cache_roadmaps=True,
+        num_prm_nodes=50,
+        goal_biasing=0.2,
+        timeout=300
+    ):
         start_configs = tuple(tuple(conf) for conf in start_configs)
         goal_configs = tuple(tuple(conf) for conf in goal_configs)
-        self.setup_run(ur5_poses, start_configs, target_eff_poses, obstacles, specific_ur5s=ur5_arms)
+        self.setup_run(start_configs, specific_ur5s=ur5_arms)
         env = MultiRobotUR5Env(self.ur5_group, resolutions, self.obstacles)
         mrdrrt = MRdRRTPlanner(env, visualize=self.visualize)
 
         mrdrrt.get_implicit_graph(start_configs=start_configs, goal_configs=goal_configs, ur5_poses=ur5_poses,
                                     cache_roadmaps=cache_roadmaps, task_path=task_path, n_nodes=num_prm_nodes)
 
-        self.ur5_group.setup(ur5_poses, start_configs)
+        self.ur5_group.setup(start_configs)
         path, num_iterations, time = mrdrrt.find_path(start_configs, goal_configs, goal_biasing=goal_biasing, timeout=timeout)
 
         if self.gui and path is not None:
-            self.demo_path(ur5_poses, start_configs, path)
+            self.demo_path(start_configs, path)
+
         return path, num_iterations, time
 
     def get_configs_for_rrt(self, ur5_arms, goal_positions=None, start_configs=None, goal_configs=None):
         start_configs = [ur5.get_arm_joint_values() for ur5 in ur5_arms] if start_configs is None else start_configs
-        goal_configs = [ur5.inverse_kinematics(*goal_position) for ur5, goal_position in zip(ur5_arms, goal_positions)] if goal_positions is not None else goal_configs
+        goal_configs = [
+            ur5.inverse_kinematics(*goal_position)
+            for ur5, goal_position in zip(ur5_arms, goal_positions)
+        ] if goal_positions is not None else goal_configs
 
         ur5_poses = [ur5.get_pose() for ur5 in ur5_arms]
 
@@ -165,15 +145,21 @@ class MultiarmEnvironment:
         start_configs = [ur5.get_arm_joint_values() for ur5 in ur5_arms] if start_configs is None else start_configs
 
         # Setup run first because IK looks for a configuration that is close to the current one
-        self.setup_run([0] * len(start_configs), start_configs, None, None, specific_ur5s=ur5_arms)
+        self.setup_run(start_configs, specific_ur5s=ur5_arms)
 
-        start_configs, goal_configs, current_poses = self.get_configs_for_rrt(ur5_arms, goal_positions=goal_positions, start_configs=start_configs, goal_configs=goal_configs)
+        start_configs, goal_configs, current_poses = self.get_configs_for_rrt(
+            ur5_arms,
+            goal_positions=goal_positions,
+            start_configs=start_configs,
+            goal_configs=goal_configs
+        )
 
         path = None
         attempt_count = 1
         while path is None and attempt_count <= max_attempts:
-            path = self._birrt(ur5_arms, start_configs, goal_configs, current_poses, collision_distance=collision_distance)[0]
+            path = self._birrt(ur5_arms, start_configs, goal_configs, collision_distance=collision_distance)[0]
             attempt_count += 1
+
         return path
 
     def mrdrrt(self, ur5_arms, goal_positions, start_configs=None):
@@ -182,8 +168,8 @@ class MultiarmEnvironment:
 
         return self._mrdrrt(ur5_arms, start_configs, goal_configs, current_poses)[0]
 
-    def demo_path(self, ur5_poses, start_configs, path_conf):
-        self.ur5_group.setup(ur5_poses, start_configs)
+    def demo_path(self, start_configs, path_conf):
+        self.ur5_group.setup(start_configs)
         input("Press enter to play demo!")
         edges = []
         colors = [ur5.color for ur5 in self.ur5_group.active_controllers]
