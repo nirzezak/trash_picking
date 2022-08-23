@@ -126,6 +126,15 @@ class MultiarmEnvironment:
         return path, num_iterations, time
 
     def get_configs_for_rrt(self, ur5_arms, goal_positions=None, start_configs=None, goal_configs=None):
+        """
+        @param ur5_arms: relevant ur5 arms
+        @param goal_positions: the goal positions of the ur5 arms' end effectors - mutually exclusive with goal_configs
+        @param start_configs: the starting configurations of the ur5 arms in case they shouldn't be calculated
+        @param goal_configs: the goal configurations of the ur5 arms in case they shouldn't be calculated
+
+        Returns the starting configurations of the ur5 arms, the goal configurations inferred from goal positions and
+            the current poses of the ur5 arms
+        """
         start_configs = [ur5.get_arm_joint_values() for ur5 in ur5_arms] if start_configs is None else start_configs
         goal_configs = [
             ur5.inverse_kinematics(*goal_position)
@@ -137,9 +146,16 @@ class MultiarmEnvironment:
         return start_configs, goal_configs, ur5_poses
 
     def birrt(self, ur5_arms, goal_positions=None, start_configs=None, goal_configs=None, max_attempts=1, collision_distance=None):
-        """"
-        Returns a list of configurations for the arms to get to the goal_positions, or None if it couldn't find a path.
+        """
+        @param ur5_arms: the ur5 arms to find a path for
+        @param goal_positions: the end locations of the ur5 effectors to find a path to - mutually exclusive with goal_configs
+        @param start_configs: the starting configurations of the arms - uses the current arm configurations if not provided
+        @param goal_configs: the end configurations of the ur5s to find a path to - mutually exclusive with goal_positions
         @param max_attempts: number of attempts to find a path
+        @param collision_distance: distance from tip joint to consider as collision
+
+        Returns a list of configurations for the arms to get to the goal_positions or goal_configs, or None
+            if it couldn't find a path, using BiRRT algorithm.
         """
 
         start_configs = [ur5.get_arm_joint_values() for ur5 in ur5_arms] if start_configs is None else start_configs
