@@ -293,7 +293,10 @@ class AdvancedTaskManager(TaskManagerComponent):
             index_for_arm_tasks_lst = [self.get_index_for_new_task(arm, start_tick_upper_bound) for arm in arms]
             arm_start_conf = [arm.get_arm_joint_values() if idx == 0 else
                               self.arms_to_tasks[arm][idx - 1].path_to_bin[-1]
-                              for arm, idx in zip(arms, index_for_arm_tasks_lst)]  # TODO SHIR - when we add task in the middle of the task list, we are ruining the arm_start_conf of next_task.
+                              for arm, idx in zip(arms, index_for_arm_tasks_lst)]
+            # TODO - when we add task in the middle of the task list, we are ruining the arm_start_conf of next_task.
+            #   In the current implementation, we never add task in the middle of the task list,
+            #   so we don't have this problem
 
             trash_conf = [trash_lst[i].get_trash_config_at_loc(trash_group_picking_points[i])
                           for i in range(n_trash)]
