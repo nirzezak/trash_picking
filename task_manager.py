@@ -15,7 +15,7 @@ from trash_bin import Bin
 
 ARM_TO_TRASH_MAX_DIST = [0.1, 0.1, 0.1]  # TODO - find real values
 TRASH_INIT_Y_VAL = -1  # TODO - make this dynamic
-ARMS_SAFETY_OFFSET = 0.2
+ARMS_SAFETY_OFFSET = [0, 0.15, 0]
 
 TICKS_TO_TRASH_LOW_BOUND = 700  # lower bound estimation for number of ticks it takes for an arm to move to a
 # trash on the conveyor. Used to determine whether an arm can possibly do some task
@@ -135,11 +135,11 @@ class AdvancedTaskManager(TaskManagerComponent):
         @param trash: The trash object we want to recycle.
         @param arm: The arm that we will use.
 
-        @returns The location of the closest bin, with some offset to avoid
-        collisions when both arms need to work on that trash bin.
+        @returns The location of the closest bin,
+        for shared bins, add some offset to avoid collisions when both arms need to work on that trash bin.
         """
         # TODO: This function is probably useless, we can hardcode it, but I was
-        #   too lazy to do it now...
+        #   too lazy to do it now... we can leave it and cache the results
         arm_loc = arm.pose[0]
         arm_loc = np.array(arm_loc)
 
@@ -155,23 +155,41 @@ class AdvancedTaskManager(TaskManagerComponent):
                     closest_bin_distance = distance
                     closest_bin = trash_bin
 
-        # Return the location of that bin, with some small marginal offset to
-        # avoid collisions
-        trash_bin_loc = closest_bin.location.copy()
-        if arm_loc[1] > trash_bin_loc[1]:
-            # The arm is ahead than the bin, therefore the arm needs to go a
-            # little bit further ahead
-            trash_bin_loc[1] += ARMS_SAFETY_OFFSET
-        elif arm_loc[1] < trash_bin_loc[1]:
-            # The bin is ahead than the arm, therefore the arm needs to go a
-            # little bit further back
-            trash_bin_loc[1] -= ARMS_SAFETY_OFFSET
-        else:
-            # The arm and the bin are at the same Y offset, so no need for
-            # any safety offset (in this case, only 1 arm uses this bin)
-            pass
+        return closest_bin.location.copy()
 
-        return trash_bin_loc
+    def find_bin_loc_for_arms(self, trash_lst: List[Trash], arms: List[UR5]) -> List[List[int]]:
+        """
+        @param trash_lst: list of trash objects we want to recycle.
+        @param arms: list of arms that will be used (accordingly)
+        assumes len(trash_lst) = len(arms) < 3
+
+        @returns The locations of the closest bin for each arm-trash,
+        if both arms need to use the same bin, add some offset to avoid collisions.
+        """
+        bin_loc_list = [self._find_closest_bin(trash, arm) for trash, arm in zip(trash_lst, arms)]
+
+        if len(bin_loc_list) == 2 and bin_loc_list[0] == bin_loc_list[1]:
+            # add some offset to avoid collisions
+            for i in range(2):
+                arm_loc = arms[i].pose[0]
+                arm_loc = np.array(arm_loc)
+                bin_loc = bin_loc_list[i]
+                if arm_loc[1] > bin_loc[1]:
+                    # The arm is ahead than the bin, therefore the arm needs to go a
+                    # little bit further ahead in the y axis
+                    for dim in range(3):
+                        bin_loc[dim] += ARMS_SAFETY_OFFSET[dim]
+                elif arm_loc[1] < bin_loc[1]:
+                    # The bin is ahead than the arm, therefore the arm needs to go a
+                    # little bit further back in the y axis
+                    for dim in range(3):
+                        bin_loc[dim] -= ARMS_SAFETY_OFFSET[dim]
+                else:
+                    # Shouldn't get here
+                    # The arm and the bin are at the same Y offset, so no need for
+                    # any safety offset (in this case, only 1 arm uses this bin)
+                    pass
+        return bin_loc_list
 
     def can_be_trash_pair(self, trash1, trash2):
         """"
@@ -270,7 +288,7 @@ class AdvancedTaskManager(TaskManagerComponent):
 
             # this arms group is possibly free to do this task
             # 4. find motion plan for arms
-            bin_dst_loc = [self._find_closest_bin(trash, arm) for trash, arm in zip(trash_lst, arms)]
+            bin_dst_loc = self.find_bin_loc_for_arms(trash_lst, arms)
 
             index_for_arm_tasks_lst = [self.get_index_for_new_task(arm, start_tick_upper_bound) for arm in arms]
             arm_start_conf = [arm.get_arm_joint_values() if idx == 0 else
@@ -532,7 +550,7 @@ class SimpleTaskManager(TaskManagerComponent):
                                                                                       trash_pair_picking_points[0])
 
             # 2. find motion plan for arms
-            bin_dst_loc = [self._find_closest_bin(trash, arm) for trash, arm in zip(trash_pair, pair)]
+            bin_dst_loc = self.find_bin_loc_for_arms(trash_pair, pair)
             arm_start_conf = [arm.get_arm_joint_values() for arm in pair]
             trash_conf = [trash.get_trash_config_at_loc(point) for trash, point in zip(trash_pair, trash_pair_picking_points)]
 
@@ -599,11 +617,11 @@ class SimpleTaskManager(TaskManagerComponent):
         @param trash: The trash object we want to recycle.
         @param arm: The arm that we will use.
 
-        @returns The location of the closest bin, with some offset to avoid
-        collisions when both arms need to work on that trash bin.
+        @returns The location of the closest bin,
+        for shared bins, add some offset to avoid collisions when both arms need to work on that trash bin.
         """
         # TODO: This function is probably useless, we can hardcode it, but I was
-        #   too lazy to do it now...
+        #   too lazy to do it now... we can leave it and cache the results
         arm_loc = arm.pose[0]
         arm_loc = np.array(arm_loc)
 
@@ -619,23 +637,41 @@ class SimpleTaskManager(TaskManagerComponent):
                     closest_bin_distance = distance
                     closest_bin = trash_bin
 
-        # Return the location of that bin, with some small marginal offset to
-        # avoid collisions
-        trash_bin_loc = closest_bin.location.copy()
-        if arm_loc[1] > trash_bin_loc[1]:
-            # The arm is ahead than the bin, therefore the arm needs to go a
-            # little bit further ahead
-            trash_bin_loc[1] += ARMS_SAFETY_OFFSET
-        elif arm_loc[1] < trash_bin_loc[1]:
-            # The bin is ahead than the arm, therefore the arm needs to go a
-            # little bit further back
-            trash_bin_loc[1] -= ARMS_SAFETY_OFFSET
-        else:
-            # The arm and the bin are at the same Y offset, so no need for
-            # any safety offset (in this case, only 1 arm uses this bin)
-            pass
+        return closest_bin.location.copy()
 
-        return trash_bin_loc
+    def find_bin_loc_for_arms(self, trash_lst: List[Trash], arms: List[UR5]) -> List[List[int]]:
+        """
+        @param trash_lst: list of trash objects we want to recycle.
+        @param arms: list of arms that will be used (accordingly)
+        assumes len(trash_lst) = len(arms) < 3
+
+        @returns The locations of the closest bin for each arm-trash,
+        if both arms need to use the same bin, add some offset to avoid collisions.
+        """
+        bin_loc_list = [self._find_closest_bin(trash, arm) for trash, arm in zip(trash_lst, arms)]
+
+        if len(bin_loc_list) == 2 and bin_loc_list[0] == bin_loc_list[1]:
+            # add some offset to avoid collisions
+            for i in range(2):
+                arm_loc = arms[i].pose[0]
+                arm_loc = np.array(arm_loc)
+                bin_loc = bin_loc_list[i]
+                if arm_loc[1] > bin_loc[1]:
+                    # The arm is ahead than the bin, therefore the arm needs to go a
+                    # little bit further ahead in the y axis
+                    for dim in range(3):
+                        bin_loc[dim] += ARMS_SAFETY_OFFSET[dim]
+                elif arm_loc[1] < bin_loc[1]:
+                    # The bin is ahead than the arm, therefore the arm needs to go a
+                    # little bit further back in the y axis
+                    for dim in range(3):
+                        bin_loc[dim] -= ARMS_SAFETY_OFFSET[dim]
+                else:
+                    # Shouldn't get here
+                    # The arm and the bin are at the same Y offset, so no need for
+                    # any safety offset (in this case, only 1 arm uses this bin)
+                    pass
+        return bin_loc_list
 
     def _get_ticks_for_full_task_heuristic(self, path_to_trash_len: int, path_to_bin_len: int) -> int:
         """"
