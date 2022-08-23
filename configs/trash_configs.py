@@ -1,6 +1,6 @@
 from enum import Enum
 import trash_types
-TRASH_INIT_Y_VAL = -2.5
+TRASH_INIT_Y_VAL = -3
 
 
 class TrashConfig(Enum):
