@@ -29,7 +29,7 @@ def split_arms_conf(arms_conf, n_arm):
     return [arms_conf[arm_conf_len * i:arm_conf_len * (i + 1)] for i in range(n_arm)]
 
 class MultiarmEnvironment:
-    def __init__(self, p_env, ur5_arms, gui=True, visualize=False):
+    def __init__(self, p_env, ur5_arms, visualize=False):
         """
         @param p_env: pybullet simulation physics client
         """
@@ -39,7 +39,6 @@ class MultiarmEnvironment:
 
         self.p_env = p_env
 
-        self.gui = gui
         self.visualize = visualize
         self.obstacles = None
 
@@ -90,9 +89,6 @@ class MultiarmEnvironment:
                                                greedy=True,
                                                timeout=timeout)
 
-        if self.gui and path is not None:
-            self.demo_path(start_configs, path)
-
         return path, num_iterations, time
 
     def _mrdrrt(
@@ -119,9 +115,6 @@ class MultiarmEnvironment:
 
         self.ur5_group.setup(start_configs)
         path, num_iterations, time = mrdrrt.find_path(start_configs, goal_configs, goal_biasing=goal_biasing, timeout=timeout)
-
-        if self.gui and path is not None:
-            self.demo_path(start_configs, path)
 
         return path, num_iterations, time
 
@@ -183,21 +176,3 @@ class MultiarmEnvironment:
         start_configs = current_configs if start_configs is None else start_configs
 
         return self._mrdrrt(ur5_arms, start_configs, goal_configs, current_poses)[0]
-
-    def demo_path(self, start_configs, path_conf):
-        self.ur5_group.setup(start_configs)
-        input("Press enter to play demo!")
-        edges = []
-        colors = [ur5.color for ur5 in self.ur5_group.active_controllers]
-        for i in range(len(path_conf)-1):
-            for pose1, pose2, color in zip(self.ur5_group.forward_kinematics(path_conf[i]),
-                                           self.ur5_group.forward_kinematics(path_conf[i + 1]),
-                                           colors):
-                draw_line(pose1[0], pose2[0], rgb_color=color, width=3)
-                edges.append((pose1[0], pose2[0]))
-        for i, q in enumerate(path_conf):
-            self.ur5_group.set_joint_positions(q)
-            sleep(0.05)
-        input("Done playing demo")
-
-
