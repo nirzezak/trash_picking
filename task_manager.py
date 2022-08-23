@@ -8,7 +8,7 @@ from typing import List, Dict, Tuple, Optional
 import ticker
 from multiarm_planner.multiarm_environment import split_arms_conf_lst
 from background_environment import BackgroundEnv
-from multiarm_planner.UR5 import Robotiq2F85, UR5
+from multiarm_planner.ur5 import Robotiq2F85, UR5
 from task import Task, TaskState
 from trash import Trash
 from trash_bin import Bin

@@ -6,7 +6,7 @@ from typing import List
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from multiarm_planner.UR5 import UR5
+    from multiarm_planner.ur5 import UR5
     from trash import Trash
 
 

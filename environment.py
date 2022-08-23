@@ -8,7 +8,7 @@ import pybullet_data
 
 from conveyor import Conveyor
 
-from multiarm_planner import UR5, multiarm_environment
+from multiarm_planner import ur5, multiarm_environment
 from multiarm_planner.rrt import pybullet_utils
 
 from trash_bin import Bin
