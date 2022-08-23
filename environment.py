@@ -48,7 +48,7 @@ class Environment(object):
         self.bins = self._load_bins()
         self.arms = self._load_arms()
         self.arms_idx_pairs = ARMS_IDX_PAIRS
-        self.arms_manager = multiarm_environment.MultiarmEnvironment(self.p_simulation, self.arms, gui=False, visualize=False)
+        self.arms_manager = multiarm_environment.MultiarmEnvironment(self.p_simulation, self.arms, visualize=False)
         self.conveyor = Conveyor(self.p_simulation, CONVEYOR_LOCATION, speed=conveyor_speed, arms=self.arms)
 
         self.trash_generator = TrashGenerator(self.p_simulation, TRASH_SUMMON_INTERVAL, [1, 2, 0.5], CONVEYOR_LOCATION)
