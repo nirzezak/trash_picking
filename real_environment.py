@@ -11,7 +11,7 @@ from score import Score
 from summon_component import RandomSummonComponent, DeterministicSummonComponent, FixedAmountSummonComponent
 from task_manager import AdvancedTaskManager, SimpleTaskManager, ParallelTaskManager
 from configs.trash_configs import TrashConfig
-from multiarm_planner.UR5 import ArmState
+from multiarm_planner.ur5 import ArmState
 
 
 class RealEnv(Environment):
@@ -46,6 +46,14 @@ class RealEnv(Environment):
                 # Stop conveying trash that is being picked up
                 self.conveyor.unconvey(arm.curr_task.trash.get_id())
 
+            if arm.state == ArmState.MOVING_TO_BIN:
+                gripped_ids = arm.get_gripped_ids()
+                trash_id = arm.curr_task.trash.get_id()
+
+                if trash_id not in gripped_ids and trash_id in self.conveyor.dont_convey:
+                    # Convey trash that was missed
+                    self.conveyor.dont_convey.remove(trash_id)
+
         self.p_simulation.stepSimulation()
         self.conveyor.convey()
         self.remove_lost_cause_trash()
@@ -63,6 +71,12 @@ class RealEnv(Environment):
                 self.trash_generator.remove_trash(body_uid)
                 self.task_manager.remove_trash(body_uid)
                 lost_trash_count += 1
+
+                if body_uid in self.conveyor.dont_convey:
+                    # Remove ID from dont_convey list because newly spawned trash
+                    # can have the same ID as old removed trash
+                    # TODO: Review this after merging with score stuff
+                    self.conveyor.dont_convey.remove(body_uid)
 
         self.lost.increase_score(lost_trash_count)
 

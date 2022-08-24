@@ -6,7 +6,7 @@ import pybullet as p
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from multiarm_planner.UR5 import UR5
+    from multiarm_planner.ur5 import UR5
 
 
 class Conveyor(object):
@@ -44,7 +44,5 @@ class Conveyor(object):
             self.p_simulation.changeDynamics(body_uid, link_index, lateralFriction=0)
 
     def unconvey(self, uid):
-        # TODO: Can new trash have the same ID as old removed trash?
-        #   Either way, should probably remove the ID from this list when removing trash for less spam
         if uid not in self.dont_convey:
             self.dont_convey.append(uid)

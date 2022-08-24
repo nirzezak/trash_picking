@@ -8,7 +8,7 @@ import pybullet_data
 
 from conveyor import Conveyor
 
-from multiarm_planner import UR5, multiarm_environment
+from multiarm_planner import ur5, multiarm_environment
 from multiarm_planner.rrt import pybullet_utils
 
 from trash_bin import Bin
@@ -55,7 +55,7 @@ class Environment(object):
         self.bins = self._load_bins()
         self.arms = self._load_arms()
         self.arms_idx_pairs = ARMS_IDX_PAIRS
-        self.arms_manager = multiarm_environment.MultiarmEnvironment(self.p_simulation, self.arms, gui=False, visualize=False)
+        self.arms_manager = multiarm_environment.MultiarmEnvironment(self.p_simulation, self.arms, visualize=False)
         self.conveyor = Conveyor(self.p_simulation, CONVEYOR_LOCATION, speed=conveyor_speed, arms=self.arms)
 
         self.trash_generator = TrashGenerator(self.p_simulation, TRASH_SUMMON_INTERVAL, [1, 2, 0.5], CONVEYOR_LOCATION)
@@ -92,11 +92,11 @@ class Environment(object):
             orientation = p.getQuaternionFromEuler([0, 0, 0])
 
             if arm['loc'][0] > 0:
-                ur5_arm = UR5.UR5(self.p_simulation, (arm['loc'], orientation))
+                ur5_arm = ur5.UR5(self.p_simulation, (arm['loc'], orientation))
                 ur5_arm.set_base_config(RIGHT_ARMS_BASE_CONFIG)
 
             else:
-                ur5_arm = UR5.UR5(self.p_simulation, (arm['loc'], orientation))
+                ur5_arm = ur5.UR5(self.p_simulation, (arm['loc'], orientation))
                 ur5_arm.set_base_config(LEFT_ARMS_BASE_CONFIG)
 
             ur5_list.append(ur5_arm)
