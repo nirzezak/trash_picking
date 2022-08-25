@@ -6,6 +6,7 @@ import numpy as np
 from typing import List, Dict, Tuple, Optional
 
 import ticker
+from configs import trash_configs
 from multiarm_planner.multiarm_environment import split_arms_conf_lst
 from background_environment import BackgroundEnv
 from multiarm_planner.ur5 import Robotiq2F85, UR5
@@ -14,7 +15,6 @@ from trash import Trash
 from trash_bin import Bin
 
 ARM_TO_TRASH_MAX_DIST = [0.1, 0.1, 0.1]  # TODO - find real values
-TRASH_INIT_Y_VAL = -1  # TODO - make this dynamic
 ARMS_SAFETY_OFFSET = [0, 0.15, 0]
 
 TICKS_TO_TRASH_LOW_BOUND = 700  # lower bound estimation for number of ticks it takes for an arm to move to a
@@ -293,7 +293,10 @@ class AdvancedTaskManager(TaskManagerComponent):
             index_for_arm_tasks_lst = [self.get_index_for_new_task(arm, start_tick_upper_bound) for arm in arms]
             arm_start_conf = [arm.get_arm_joint_values() if idx == 0 else
                               self.arms_to_tasks[arm][idx - 1].path_to_bin[-1]
-                              for arm, idx in zip(arms, index_for_arm_tasks_lst)]  # TODO SHIR - when we add task in the middle of the task list, we are ruining the arm_start_conf of next_task.
+                              for arm, idx in zip(arms, index_for_arm_tasks_lst)]
+            # TODO - when we add task in the middle of the task list, we are ruining the arm_start_conf of next_task.
+            #   In the current implementation, we never add task in the middle of the task list,
+            #   so we don't have this problem
 
             trash_conf = [trash_lst[i].get_trash_config_at_loc(trash_group_picking_points[i])
                           for i in range(n_trash)]
@@ -344,7 +347,7 @@ class AdvancedTaskManager(TaskManagerComponent):
         - the PNR in this case is a value on the 2nd axis.
         """
         for trash in self.single_trash:
-            if trash.get_curr_position()[1] - TRASH_INIT_Y_VAL >= self.max_dist_between_trash_pair_y_axis:
+            if trash.get_curr_position()[1] - trash_configs.TRASH_INIT_Y_VAL >= self.max_dist_between_trash_pair_y_axis:
                 self.single_trash.remove(trash)
                 # try to assign a single trash task
                 self.add_trash_task_to_arms_group([trash], ticker.now())
@@ -459,7 +462,8 @@ class SimpleTaskManager(TaskManagerComponent):
     debugging of everything else.
     """
 
-    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env: BackgroundEnv):
+    def __init__(self, arms: List[UR5], arms_idx_pairs: List[List[int]], bins: List[Bin], trash_velocity: float,
+                 background_env: BackgroundEnv):
         """
         @param arms: A list of all of the available arms
         @param bins: A list of all of the available bins
@@ -469,7 +473,7 @@ class SimpleTaskManager(TaskManagerComponent):
         axis 0 - x, axis 1 - y, axis 2 - z
         """
         self.arms = arms
-        self.arms_pairs_idx = list(zip(range(0, len(self.arms), 2), range(1, len(self.arms), 2)))
+        self.arms_pairs_idx = arms_idx_pairs
         self.arms_pairs = list(zip(self.arms[::2], self.arms[1::2]))
         self.bins = bins
         self.trash_velocity = trash_velocity
@@ -683,6 +687,17 @@ class SimpleTaskManager(TaskManagerComponent):
 
     @staticmethod
     def _get_ticks_for_path_to_trash_heuristic(path_len: int) -> int:
+        """
+        @param path_len: length of the path to trash configurations list
+        @return: estimation for number of ticks it would take to do this path
+
+        The path is built from ur5 configuration list,
+        each configuration change takes some number of ticks (not fixed).
+        For each path we can calculate the series of #tick it took for each configuration change.
+        We noticed that for MOVING_TO_TRASH path, this "#ticks per configuration" series has a fixed pattern
+        (even when using different trash locations)
+        The pattern we found: 2,x,...,x,1,x,... where x is 47.4 in expectation (#ticks per conf series)
+        """
         if path_len < 10:
             print('WARNING: unexpected path to trash length, enhance the get_ticks_for_path_to_trash_heuristic')
             return path_len * 40  # arbitrary, we didn't see such examples
@@ -690,6 +705,17 @@ class SimpleTaskManager(TaskManagerComponent):
 
     @staticmethod
     def _get_ticks_for_path_to_bin_heuristic(path_len: int) -> int:
+        """
+        @param path_len: length of the path to bin configurations list
+        @return: estimation for number of ticks it would take to do this path
+
+        The path is built from ur5 configuration list,
+        each configuration change takes some number of ticks (not fixed).
+        For each path we can calculate the series of #tick it took for each configuration change.
+        We noticed that for MOVING_TO_BIN path, this "#ticks per configuration" series has a fixed pattern
+        (even when using different trash locations)
+        The pattern we found: 1,47,48,48,... (#ticks per conf series)
+        """
         if path_len < 3:
             print('WARNING: unexpected path to trash length, enhance the get_ticks_for_path_to_bin_heuristic')
             return path_len * 40  # arbitrary, we didn't see such examples
