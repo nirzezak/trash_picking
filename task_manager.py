@@ -268,6 +268,13 @@ class AdvancedTaskManager(TaskManagerComponent):
             # 1. find what will be the picking tick of the task if this arm pair will do the task
             # picking tick := the tick in which the arms will pick the trash
             trash_group_picking_points = self.calc_trash_picking_point(arms, trash_lst)
+
+            # check if the arms can get to the picking points
+            for arm, picking_point in zip(arms, trash_group_picking_points):
+                if not self.can_arm_get_to_point(arm, picking_point):
+                    # arm can't get to the trash
+                    continue
+
             # picking tick is the same for all arms in the group
             picking_tick = curr_tick + self.calculate_ticks_to_destination_on_conveyor(trash_lst[0],
                                                                                        trash_group_picking_points[0])
@@ -428,6 +435,11 @@ class AdvancedTaskManager(TaskManagerComponent):
         return self.get_ticks_for_path_to_trash_heuristic(path_to_trash_len) + \
                2 * Robotiq2F85.TICKS_TO_CHANGE_GRIP + \
                self.get_ticks_for_path_to_bin_heuristic(path_to_bin_len)
+
+    @staticmethod
+    def can_arm_get_to_point(arm, point):
+        arm_loc = arm.get_pose()[0]
+        return all([(arm_loc[i] - point[i]) <= ARM_TO_TRASH_MAX_DIST[i] for i in range(2)])
 
     @staticmethod
     def get_ticks_for_path_to_trash_heuristic(path_len: int) -> int:
