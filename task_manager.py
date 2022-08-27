@@ -14,7 +14,9 @@ from task import Task, TaskState
 from trash import Trash
 from trash_bin import Bin
 
-ARM_TO_TRASH_MAX_DIST = [0.1, 0.1, 0.1]  # TODO - find real values
+ARM_TO_TRASH_MAX_DIST = [0.73, 0.4]
+# ARM_TO_TRASH_MAX_DIST: max distance (in x,y axes) between the arm base and a picking point
+# in which the arm can get to the picking point
 ARMS_SAFETY_OFFSET = [0, 0.15, 0]
 
 TICKS_TO_TRASH_LOW_BOUND = 700  # lower bound estimation for number of ticks it takes for an arm to move to a
