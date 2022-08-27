@@ -70,6 +70,8 @@ class AdvancedTaskManager(TaskManagerComponent):
 
         self.max_dist_between_trash_pair_y_axis = 2 * ARM_TO_TRASH_MAX_DIST[1] + arm_pair_dist_y_axis
 
+        self.arm_and_trash_type_to_bin_loc = {}  # cache for the results of _find_closest_bin method
+
     def add_trash(self, trash: Trash):
         """
         @param trash: The trash to add
@@ -140,8 +142,10 @@ class AdvancedTaskManager(TaskManagerComponent):
         @returns The location of the closest bin,
         for shared bins, add some offset to avoid collisions when both arms need to work on that trash bin.
         """
-        # TODO: This function is probably useless, we can hardcode it, but I was
-        #   too lazy to do it now... we can leave it and cache the results
+        cache_key = (arm, trash.trash_type)
+        if cache_key in self.arm_and_trash_type_to_bin_loc:
+            return self.arm_and_trash_type_to_bin_loc[cache_key].copy()
+
         arm_loc = arm.pose[0]
         arm_loc = np.array(arm_loc)
 
@@ -157,7 +161,10 @@ class AdvancedTaskManager(TaskManagerComponent):
                     closest_bin_distance = distance
                     closest_bin = trash_bin
 
-        return closest_bin.location.copy()
+        result = closest_bin.location.copy()
+        # cache result
+        self.arm_and_trash_type_to_bin_loc[cache_key] = result
+        return result.copy()
 
     def find_bin_loc_for_arms(self, trash_lst: List[Trash], arms: List[UR5]) -> List[List[int]]:
         """
