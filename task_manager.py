@@ -514,19 +514,19 @@ class SimpleTaskManager(TaskManagerComponent):
 
         self.arm_and_trash_type_to_bin_loc = {}  # cache for the results of _find_closest_bin method
 
-def add_trash(self, trash: Trash):
-        """
-        @param trash: The trash to add
-        Try to find a trash pair for @param trash,
-        if a pair is found, give this 2 trash task to a pair of arms (if possible)
-        otherwise, add @param trash to self.single_trash list
-        """
-        for older_trash in self.single_trash:
-            if self._can_be_trash_pair(trash, older_trash) and self._add_trash_task_to_arms(trash, older_trash):
-                self.single_trash.remove(older_trash)
-                return
+    def add_trash(self, trash: Trash):
+            """
+            @param trash: The trash to add
+            Try to find a trash pair for @param trash,
+            if a pair is found, give this 2 trash task to a pair of arms (if possible)
+            otherwise, add @param trash to self.single_trash list
+            """
+            for older_trash in self.single_trash:
+                if self._can_be_trash_pair(trash, older_trash) and self._add_trash_task_to_arms(trash, older_trash):
+                    self.single_trash.remove(older_trash)
+                    return
 
-        self.single_trash.append(trash)
+            self.single_trash.append(trash)
 
     def step(self):
         self._notify_arms_and_remove_completed_tasks()
