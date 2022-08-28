@@ -307,9 +307,13 @@ class AdvancedTaskManager(TaskManagerComponent):
             bin_dst_loc = self.find_bin_loc_for_arms(trash_lst, arms)
 
             index_for_arm_tasks_lst = [self.get_index_for_new_task(arm, start_tick_upper_bound) for arm in arms]
-            arm_start_conf = [arm.get_arm_joint_values() if idx == 0 else
-                              self.arms_to_tasks[arm][idx - 1].path_to_bin[-1]
-                              for arm, idx in zip(arms, index_for_arm_tasks_lst)]
+            arm_start_conf = []
+            for arm, idx in zip(arms, index_for_arm_tasks_lst):
+                if idx == 0 or len(self.arms_to_tasks[arm][idx - 1].path_to_bin) == 0:
+                    arm_start_conf.append(arm.get_arm_joint_values())
+
+                else:
+                    arm_start_conf.append(self.arms_to_tasks[arm][idx - 1].path_to_bin[-1])
             # TODO - when we add task in the middle of the task list, we are ruining the arm_start_conf of next_task.
             #   In the current implementation, we never add task in the middle of the task list,
             #   so we don't have this problem
@@ -508,7 +512,9 @@ class SimpleTaskManager(TaskManagerComponent):
         arm_pair_dist_y_axis = self.arms_pairs[0][1].get_pose()[0][1] - self.arms_pairs[0][0].get_pose()[0][1]
         self.max_dist_between_trash_pair_y_axis = 2 * ARM_TO_TRASH_MAX_DIST[1] + arm_pair_dist_y_axis
 
-    def add_trash(self, trash: Trash):
+        self.arm_and_trash_type_to_bin_loc = {}  # cache for the results of _find_closest_bin method
+
+def add_trash(self, trash: Trash):
         """
         @param trash: The trash to add
         Try to find a trash pair for @param trash,
@@ -645,8 +651,11 @@ class SimpleTaskManager(TaskManagerComponent):
         @returns The location of the closest bin,
         for shared bins, add some offset to avoid collisions when both arms need to work on that trash bin.
         """
-        # TODO: This function is probably useless, we can hardcode it, but I was
-        #   too lazy to do it now... we can leave it and cache the results
+
+        cache_key = (arm, trash.trash_type)
+        if cache_key in self.arm_and_trash_type_to_bin_loc:
+            return self.arm_and_trash_type_to_bin_loc[cache_key].copy()
+
         arm_loc = arm.pose[0]
         arm_loc = np.array(arm_loc)
 
@@ -662,7 +671,10 @@ class SimpleTaskManager(TaskManagerComponent):
                     closest_bin_distance = distance
                     closest_bin = trash_bin
 
-        return closest_bin.location.copy()
+        result = closest_bin.location.copy()
+        # cache result
+        self.arm_and_trash_type_to_bin_loc[cache_key] = result
+        return result.copy()
 
     def find_bin_loc_for_arms(self, trash_lst: List[Trash], arms: List[UR5]) -> List[List[int]]:
         """
