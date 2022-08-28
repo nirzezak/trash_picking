@@ -577,6 +577,13 @@ class SimpleTaskManager(TaskManagerComponent):
             # picking tick := the tick in which the arms will pick the trash
             trash_pair = [trash1, trash2]
             trash_pair_picking_points = self._calc_trash_pair_picking_point(list(pair), trash_pair)
+
+            # Check if the arms can get to the picking points
+            for arm, picking_point in zip(pair, trash_pair_picking_points):
+                if not self.can_arm_get_to_point(arm, picking_point):
+                    # arm can't get to the trash
+                    continue
+
             picking_tick = ticker.now() + self._calc_ticks_to_destination_on_conveyor(trash_pair[0],
                                                                                       trash_pair_picking_points[0])
 
@@ -767,3 +774,8 @@ class SimpleTaskManager(TaskManagerComponent):
                 elif task.start_tick <= ticker.now() and task.state == TaskState.WAIT:
                     task.state = TaskState.DISPATCHED
                     arm.start_task(task)
+
+    @staticmethod
+    def can_arm_get_to_point(arm, point):
+        arm_loc = arm.get_pose()[0]
+        return all([(arm_loc[i] - point[i]) <= ARM_TO_TRASH_MAX_DIST[i] for i in range(2)])
