@@ -71,20 +71,23 @@ class TrashListSummonComponent(SummonComponent):
     This component summons the trash given in trash_lst argument
     """
 
-    def __init__(self, trash_generator, task_manager, summon_tick, trash_lst, side=1):
+    def __init__(self, trash_generator, task_manager, summon_tick, trash_lst, side=None):
         """
         :param trash_lst: list of trash configs
-        :param side: 1 or -1, the side of the trash on the conveyor
+        :param side: list of 1 or -1, the side of the trash on the conveyor
+        if side is None, all trash will be generated on side 1
+        Assumes len(trash_lst) = len(side) if side is not None
         """
         self.trash_generator = trash_generator
         self.task_manager = task_manager
         self.summon_tick = summon_tick
         self.trash_lst = trash_lst
         self.next_trash_idx = 0
-        self.side = side
+        self.side = side if side is not None else [1 for _ in range(len(trash_lst))]
 
     def step(self):
         if self.next_trash_idx < len(self.trash_lst) and ticker.now() % self.summon_tick == 0:
-            trash = self.trash_generator.summon_trash(self.trash_lst[self.next_trash_idx].signed_value(self.side))
+            trash = self.trash_generator.summon_trash(
+                self.trash_lst[self.next_trash_idx].signed_value(self.side[self.next_trash_idx]))
             self.task_manager.add_trash(trash)
             self.next_trash_idx += 1

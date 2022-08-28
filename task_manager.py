@@ -9,6 +9,7 @@ from typing import List, Dict, Tuple, Optional, Union
 
 import ticker
 from environment import EnvironmentArgs
+from configs import trash_configs
 from multiarm_planner.multiarm_environment import split_arms_conf_lst
 from background_environment import BackgroundEnv, ParallelEnv
 from multiarm_planner.ur5 import Robotiq2F85, UR5
@@ -17,8 +18,9 @@ from trash import Trash
 from trash_bin import Bin
 from trash_types import TrashTypes
 
-ARM_TO_TRASH_MAX_DIST = [0.1, 0.1, 0.1]  # TODO - find real values
-TRASH_INIT_Y_VAL = -1  # TODO - make this dynamic
+ARM_TO_TRASH_MAX_DIST = [0.73, 0.4]
+# ARM_TO_TRASH_MAX_DIST: max distance (in x,y axes) between the arm base and a picking point
+# in which the arm can get to the picking point
 ARMS_SAFETY_OFFSET = [0, 0.15, 0]
 
 TICKS_TO_TRASH_LOW_BOUND = 700  # lower bound estimation for number of ticks it takes for an arm to move to a
@@ -413,6 +415,13 @@ class AdvancedTaskManager(TaskManagerComponent):
             # 1. find what will be the picking tick of the task if this arm pair will do the task
             # picking tick := the tick in which the arms will pick the trash
             trash_group_picking_points = self.calc_trash_picking_point(arms, trash_lst)
+
+            # check if the arms can get to the picking points
+            for arm, picking_point in zip(arms, trash_group_picking_points):
+                if not self.can_arm_get_to_point(arm, picking_point):
+                    # arm can't get to the trash
+                    continue
+
             # picking tick is the same for all arms in the group
             picking_tick = curr_tick + self.calculate_ticks_to_destination_on_conveyor(trash_lst[0],
                                                                                        trash_group_picking_points[0])
@@ -438,9 +447,16 @@ class AdvancedTaskManager(TaskManagerComponent):
             bin_dst_loc = self.find_bin_loc_for_arms(trash_lst, arms)
 
             index_for_arm_tasks_lst = [self.get_index_for_new_task(arm, start_tick_upper_bound) for arm in arms]
-            arm_start_conf = [arm.get_arm_joint_values() if idx == 0 else
-                              self.arms_to_tasks[arm][idx - 1].path_to_bin[-1]
-                              for arm, idx in zip(arms, index_for_arm_tasks_lst)]  # TODO SHIR - when we add task in the middle of the task list, we are ruining the arm_start_conf of next_task.
+            arm_start_conf = []
+            for arm, idx in zip(arms, index_for_arm_tasks_lst):
+                if idx == 0 or len(self.arms_to_tasks[arm][idx - 1].path_to_bin) == 0:
+                    arm_start_conf.append(arm.get_arm_joint_values())
+
+                else:
+                    arm_start_conf.append(self.arms_to_tasks[arm][idx - 1].path_to_bin[-1])
+            # TODO - when we add task in the middle of the task list, we are ruining the arm_start_conf of next_task.
+            #   In the current implementation, we never add task in the middle of the task list,
+            #   so we don't have this problem
 
             trash_conf = [trash_lst[i].get_trash_config_at_loc(trash_group_picking_points[i])
                           for i in range(n_trash)]
@@ -491,7 +507,7 @@ class AdvancedTaskManager(TaskManagerComponent):
         - the PNR in this case is a value on the 2nd axis.
         """
         for trash in self.single_trash:
-            if trash.get_curr_position()[1] - TRASH_INIT_Y_VAL >= self.max_dist_between_trash_pair_y_axis:
+            if trash.get_curr_position()[1] - trash_configs.TRASH_INIT_Y_VAL >= self.max_dist_between_trash_pair_y_axis:
                 self.single_trash.remove(trash)
                 # try to assign a single trash task
                 self.add_trash_task_to_arms_group([trash], ticker.now())
@@ -570,6 +586,11 @@ class AdvancedTaskManager(TaskManagerComponent):
         return self.get_ticks_for_path_to_trash_heuristic(path_to_trash_len) + \
                2 * Robotiq2F85.TICKS_TO_CHANGE_GRIP + \
                self.get_ticks_for_path_to_bin_heuristic(path_to_bin_len)
+
+    @staticmethod
+    def can_arm_get_to_point(arm, point):
+        arm_loc = arm.get_pose()[0]
+        return all([(arm_loc[i] - point[i]) <= ARM_TO_TRASH_MAX_DIST[i] for i in range(2)])
 
     @staticmethod
     def get_ticks_for_path_to_trash_heuristic(path_len: int) -> int:
@@ -711,6 +732,12 @@ class SimpleTaskManager(TaskManagerComponent):
             # picking tick := the tick in which the arms will pick the trash
             trash_pair = [trash1, trash2]
             trash_pair_picking_points = self._calc_trash_group_picking_point(pair.arms, trash_pair)
+            # Check if the arms can get to the picking points
+            for arm, picking_point in zip(pair.arms, trash_pair_picking_points):
+                if not self.can_arm_get_to_point(arm, picking_point):
+                    # arm can't get to the trash
+                    continue
+
             picking_tick = ticker.now() + self._calc_ticks_to_destination_on_conveyor(trash_pair[0],
                                                                                       trash_pair_picking_points[0])
 
@@ -819,6 +846,11 @@ class SimpleTaskManager(TaskManagerComponent):
                     pass
 
         return bin_dst_loc
+
+    @staticmethod
+    def can_arm_get_to_point(arm, point):
+        arm_loc = arm.get_pose()[0]
+        return all([(arm_loc[i] - point[i]) <= ARM_TO_TRASH_MAX_DIST[i] for i in range(2)])
 
 
 class ParallelTaskManager(SimpleTaskManager):

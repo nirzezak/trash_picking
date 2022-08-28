@@ -1,24 +1,26 @@
 from enum import Enum
 import trash_types
+TRASH_INIT_Y_VAL = -3
+# TODO- set TRASH_INIT_Y_VAL = -3.5 or less (and make the conveyor longer), then check if single trash picking is ok
 
 
 class TrashConfig(Enum):
 
     MUSTARD = {
         'path': r'models/YcbMustardBottle/model.urdf',
-        'location': [-0.21, -2.5, 0.585],
+        'location': [-0.21, TRASH_INIT_Y_VAL, 0.585],
         'gripping_points': [[0.03, 0.05, 0.175]],
         'trash_type': trash_types.TrashTypes.PLASTIC
     }
     METAL_CAN = {
         'path': r'models/YcbMasterChefCan/model.urdf',
-        'location': [-0.2, -2.5, 0.55],
+        'location': [-0.2, TRASH_INIT_Y_VAL, 0.55],
         'gripping_points': [[0.02, 0.05, 0.092]],
         'trash_type': trash_types.TrashTypes.ELECTRONIC
     }
     PAPER_BOX = {
         'path': r'models/YcbCrackerBox/model.urdf',
-        'location': [-0.21, -2.5, 0.61],
+        'location': [-0.21, TRASH_INIT_Y_VAL, 0.61],
         'gripping_points': [[-0.04, 0.05, 0.2]],
         'trash_type': trash_types.TrashTypes.PAPER,
         'mirrored_gripping_points': [[-0.035, 0.05, 0.2]]

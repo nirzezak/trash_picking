@@ -8,7 +8,8 @@ import ticker
 from background_environment import BackgroundEnv
 from environment import Environment, EnvironmentArgs
 from score import Score
-from summon_component import RandomSummonComponent, DeterministicSummonComponent, FixedAmountSummonComponent
+from summon_component import RandomSummonComponent, DeterministicSummonComponent, FixedAmountSummonComponent, \
+    TrashListSummonComponent
 from task_manager import AdvancedTaskManager, SimpleTaskManager, ParallelTaskManager, AdvancedParallelTaskManager
 from configs.trash_configs import TrashConfig
 from multiarm_planner.ur5 import ArmState
