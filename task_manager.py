@@ -63,25 +63,72 @@ class TaskManagerComponent(ABC):
                         closest_bin_distance = distance
                         closest_bin = trash_bin
 
-            # Return the location of that bin, with some small marginal offset to
-            # avoid collisions
-            trash_bin_loc = closest_bin.location.copy()
-            if arm_loc[1] > trash_bin_loc[1]:
-                # The arm is ahead than the bin, therefore the arm needs to go a
-                # little bit further ahead
-                trash_bin_loc[1] += ARMS_SAFETY_OFFSET
-            elif arm_loc[1] < trash_bin_loc[1]:
-                # The bin is ahead than the arm, therefore the arm needs to go a
-                # little bit further back
-                trash_bin_loc[1] -= ARMS_SAFETY_OFFSET
-            else:
-                # The arm and the bin are at the same Y offset, so no need for
-                # any safety offset (in this case, only 1 arm uses this bin)
-                pass
-
-            closest_bins[trash_type] = trash_bin_loc
+            closest_bins[trash_type] = closest_bin
 
         return closest_bins
+
+    def _find_closest_bin(self, trash: Trash, arm: UR5) -> List[int]:
+        """
+        Finds the closest bin to the arm, that handles this type of trash.
+
+        @param trash: The trash object we want to recycle.
+        @param arm: The arm that we will use.
+
+        @returns The location of the closest bin,
+        for shared bins, add some offset to avoid collisions when both arms need to work on that trash bin.
+        """
+        # TODO: This function is probably useless, we can hardcode it, but I was
+        #   too lazy to do it now... we can leave it and cache the results
+        arm_loc = arm.pose[0]
+        arm_loc = np.array(arm_loc)
+
+        # Find the closest bin
+        closest_bin_distance = math.inf
+        closest_bin = None
+        for trash_bin in self.bins:
+            if trash_bin.trash_type == trash.trash_type:
+                # Calculate distance
+                trash_bin_loc = np.array(trash_bin.location)
+                distance = np.linalg.norm(arm_loc - trash_bin_loc)
+                if distance < closest_bin_distance:
+                    closest_bin_distance = distance
+                    closest_bin = trash_bin
+
+        return closest_bin.location.copy()
+
+    def find_bin_loc_for_arms(self, trash_lst: List[Trash], arms: List[UR5]) -> List[List[int]]:
+        """
+        @param trash_lst: list of trash objects we want to recycle.
+        @param arms: list of arms that will be used (accordingly)
+        assumes len(trash_lst) = len(arms) < 3
+
+        @returns The locations of the closest bin for each arm-trash,
+        if both arms need to use the same bin, add some offset to avoid collisions.
+        """
+        bin_loc_list = [self._find_closest_bin(trash, arm) for trash, arm in zip(trash_lst, arms)]
+
+        if len(bin_loc_list) == 2 and bin_loc_list[0] == bin_loc_list[1]:
+            # add some offset to avoid collisions
+            for i in range(2):
+                arm_loc = arms[i].pose[0]
+                arm_loc = np.array(arm_loc)
+                bin_loc = bin_loc_list[i]
+                if arm_loc[1] > bin_loc[1]:
+                    # The arm is ahead than the bin, therefore the arm needs to go a
+                    # little bit further ahead in the y axis
+                    for dim in range(3):
+                        bin_loc[dim] += ARMS_SAFETY_OFFSET[dim]
+                elif arm_loc[1] < bin_loc[1]:
+                    # The bin is ahead than the arm, therefore the arm needs to go a
+                    # little bit further back in the y axis
+                    for dim in range(3):
+                        bin_loc[dim] -= ARMS_SAFETY_OFFSET[dim]
+                else:
+                    # Shouldn't get here
+                    # The arm and the bin are at the same Y offset, so no need for
+                    # any safety offset (in this case, only 1 arm uses this bin)
+                    pass
+        return bin_loc_list
 
     def _get_ticks_for_full_task_heuristic(self, path_to_trash_len: int, path_to_bin_len: int) -> int:
         """"
@@ -663,7 +710,7 @@ class SimpleTaskManager(TaskManagerComponent):
             # 1. find what will be the picking tick of the task if this arm pair will do the task
             # picking tick := the tick in which the arms will pick the trash
             trash_pair = [trash1, trash2]
-            trash_pair_picking_points = self._calc_trash_pair_picking_point(pair.arms, trash_pair)
+            trash_pair_picking_points = self._calc_trash_group_picking_point(pair.arms, trash_pair)
             picking_tick = ticker.now() + self._calc_ticks_to_destination_on_conveyor(trash_pair[0],
                                                                                       trash_pair_picking_points[0])
 
@@ -703,22 +750,27 @@ class SimpleTaskManager(TaskManagerComponent):
         return False
 
     @staticmethod
-    def _calc_trash_pair_picking_point(arms: List[UR5], trash_pair: List[Trash]):
+    def _calc_trash_group_picking_point(arms: List[UR5], trash_group: List[Trash]):
         """
         @param arms: list of 2 arms
-        @param trash_pair: list of 2 trash to be picked by the arms accordingly (arms[i] picks trash_pair[i])
+        @param trash_group: list of 2 trash to be picked by the arms accordingly (arms[i] picks trash_pair[i])
         Returns best possible picking points (as list) for the given arms to pick the trash pair *together*
         (according to the order in @param trash_pair).
         Best picking point: when the average y axis value of the pair trash == average y axis value of the arms
         """
-        arms_y_avg = sum([arm.get_pose()[0][1] for arm in arms]) / 2
-        # dst position is same as current position, except for the y axis (the trash moves only on the y axis)
-        trash_dst = [list(trash.get_curr_position()) for trash in trash_pair]
-        trash_curr_y_loc = [trash.get_curr_position()[1] for trash in trash_pair]
-        trash_dst[0][1] = arms_y_avg + (trash_curr_y_loc[0] - trash_curr_y_loc[1]) / 2
-        trash_dst[1][1] = arms_y_avg + (trash_curr_y_loc[1] - trash_curr_y_loc[0]) / 2
+        if len(trash_group) == 1:
+            trash_picking_point = list(trash_group[0].get_curr_position())
+            trash_picking_point[1] = arms[0].get_pose()[0][1]
+            return [trash_picking_point]
+        else:
+            arms_y_avg = sum([arm.get_pose()[0][1] for arm in arms]) / 2
+            # dst position is same as current position, except for the y axis (the trash moves only on the y axis)
+            trash_dst = [list(trash.get_curr_position()) for trash in trash_group]
+            trash_curr_y_loc = [trash.get_curr_position()[1] for trash in trash_group]
+            trash_dst[0][1] = arms_y_avg + (trash_curr_y_loc[0] - trash_curr_y_loc[1]) / 2
+            trash_dst[1][1] = arms_y_avg + (trash_curr_y_loc[1] - trash_curr_y_loc[0]) / 2
 
-        return trash_dst
+            return trash_dst
 
     def _notify_arms_and_remove_completed_tasks(self):
         """
@@ -733,6 +785,40 @@ class SimpleTaskManager(TaskManagerComponent):
                 elif task.start_tick <= ticker.now() and task.state == TaskState.WAIT:
                     task.state = TaskState.DISPATCHED
                     arm.start_task(task)
+
+    def _find_bin_loc_for_arms(self, trash_list: List[Trash], arms: List[UR5]) -> List[List[int]]:
+        """
+        @param trash_list: list of trash objects we want to recycle.
+        @param arms: list of arms that will be used (accordingly)
+        assumes len(trash_lst) = len(arms) < 3
+
+        @returns The locations of the closest bin for each arm-trash,
+        if both arms need to use the same bin, add some offset to avoid collisions.
+        """
+        bin_dst_loc = [self.closest_bins[arm][trash.trash_type] for trash, arm in zip(trash_list, arms)]
+
+        if len(bin_dst_loc) == 2 and bin_dst_loc[0] == bin_dst_loc[1]:
+            for i in range(len(bin_dst_loc)):
+                arm_loc = arms[i].pose[0]
+                arm_loc = np.array(arm_loc)
+                bin_loc = bin_dst_loc[i]
+                if arm_loc[1] > bin_loc[1]:
+                    # The arm is ahead than the bin, therefore the arm needs to go a
+                    # little bit further ahead in the y axis
+                    for dim in range(3):
+                        bin_loc[dim] += ARMS_SAFETY_OFFSET[dim]
+                elif arm_loc[1] < bin_loc[1]:
+                    # The bin is ahead than the arm, therefore the arm needs to go a
+                    # little bit further back in the y axis
+                    for dim in range(3):
+                        bin_loc[dim] -= ARMS_SAFETY_OFFSET[dim]
+                else:
+                    # Shouldn't get here
+                    # The arm and the bin are at the same Y offset, so no need for
+                    # any safety offset (in this case, only 1 arm uses this bin)
+                    pass
+
+        return bin_dst_loc
 
 
 class ParallelTaskManager(SimpleTaskManager):
@@ -771,23 +857,35 @@ class ParallelTaskManager(SimpleTaskManager):
                 if finished_task.path is not None and finished_task.task_id in self.task_context:
                     # Get all of the data from the task context and the calculation itself
                     path_to_trash, path_to_bin = finished_task.path
-                    trash_pair = self.task_context[finished_task.task_id]['trash_pair']
-                    trash_pair_picking_points = self.task_context[finished_task.task_id]['trash_pair_picking_points']
+                    trash_list = self.task_context[finished_task.task_id]['trash_list']
+                    trash_group_picking_points = self.task_context[finished_task.task_id]['trash_group_picking_points']
+                    n_trash = len(trash_list)
                     del self.task_context[finished_task.task_id]
+
+                    is_past_picking_point = False
+                    for picking_point, trash in zip(trash_group_picking_points, trash_list):
+                        if picking_point[1] < trash.get_curr_position()[1]:
+                            # trash is past the arm's picking point
+                            is_past_picking_point = True
+                            break
+
+                    if is_past_picking_point:
+                        continue
 
                     # Calculate heuristics of travel time
                     len_in_ticks = self._get_ticks_for_full_task_heuristic(len(path_to_trash), len(path_to_bin))
-                    picking_tick = self._calc_ticks_to_destination_on_conveyor(trash_pair[0],
-                                                                               trash_pair_picking_points[0],
+                    picking_tick = self._calc_ticks_to_destination_on_conveyor(trash_list[0],
+                                                                               trash_group_picking_points[0],
                                                                                self.trash_velocity)
                     picking_tick += ticker.now()
 
                     path_to_trash_per_arm = split_arms_conf_lst(path_to_trash, 2)
                     path_to_bin_per_arm = split_arms_conf_lst(path_to_bin, 2)
                     start_tick = picking_tick - self._get_ticks_for_path_to_trash_heuristic(len(path_to_trash))
+                    # TODO: Check that start_tick > ticker.now()...?
 
-                    for i in range(len(pair.arms)):
-                        task = Task(trash_pair[i], pair.arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i],
+                    for i in range(n_trash):
+                        task = Task(trash_list[i], pair.arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i],
                                     path_to_bin_per_arm[i], pair.arms)
                         self.arms_to_tasks[pair.arms[i]] = task
 
@@ -801,7 +899,7 @@ class ParallelTaskManager(SimpleTaskManager):
 
             # 1. find what will be the picking tick of the task if this arm pair will do the task
             # picking tick := the tick in which the arms will pick the trash
-            trash_pair_picking_points = self._calc_trash_pair_picking_point(pair.arms, trash_pair)
+            trash_pair_picking_points = self._calc_trash_group_picking_point(pair.arms, trash_pair)
 
             # 2. Check if the arms can reach the trash
             trash_conf = [trash.get_trash_config_at_loc(point) for trash, point in
@@ -821,9 +919,109 @@ class ParallelTaskManager(SimpleTaskManager):
 
             pair.env.dispatch(task_id, pair.arms_idx, trash_conf, bin_dst_loc, arm_start_conf, real_arm_configs)
             self.task_context[task_id] = {
-                'trash_pair': trash_pair,
-                'trash_pair_picking_points': trash_pair_picking_points
+                'trash_list': trash_pair,
+                'trash_group_picking_points': trash_pair_picking_points
             }
             return True
 
         return False
+
+
+class Timeslot(object):
+    def __init__(self, start_tick: int, end_tick: int):
+        self.start_tick = start_tick
+        self.end_tick = end_tick
+
+
+class AdvancedParallelTaskManager(ParallelTaskManager):
+    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env_args: EnvironmentArgs):
+        super(AdvancedParallelTaskManager, self).__init__(arms, bins, trash_velocity, background_env_args)
+        self.timeslots_per_arm: Dict[UR5, List[Timeslot]] = {arm: [] for arm in self.arms}
+
+    def step(self):
+        self._poll_environments()
+        self._handle_single_trash_that_passed_pnr()
+        self._notify_arms_and_remove_completed_tasks()
+        self._clear_timeslots()
+
+    def _try_dispatch_trash_to_arms(self, trash1: Trash, trash2: Optional[Trash] = None):
+        if trash2 is None:
+            trash_list = [trash1]
+        else:
+            trash_list = [trash1, trash2]
+
+        n_trash = len(trash_list)
+        task_id = None
+
+        for pair in self.pairs:
+            used_arms = pair.arms[:n_trash]
+
+            # 1. find what will be the picking tick of the task if this arm pair will do the task
+            # picking tick := the tick in which the arms will pick the trash
+            trash_group_picking_points = self._calc_trash_group_picking_point(used_arms, trash_list)
+            picking_tick = ticker.now() + self._calc_ticks_to_destination_on_conveyor(trash_list[0],
+                                                                                      trash_group_picking_points[0],
+                                                                                      self.trash_velocity)
+
+            # 2. Check if the arms can reach the trash
+            trash_conf = [trash.get_trash_config_at_loc(point) for trash, point in
+                          zip(trash_list, trash_group_picking_points)]
+            real_arm_configs = [arm.get_arm_joint_values() for arm in self.arms]
+            if not self.sync_back_env.can_arms_do_task(pair.arms_idx[:n_trash], trash_conf, real_arm_configs):
+                continue
+
+            # 3. Check if the task *approximately* would be possible for the pair
+            # TODO: Choose numbers that aren't random as fuck
+            start_tick_lower_bound = picking_tick - 1000
+            end_tick_upper_bound = picking_tick + 1500
+            task_timeslot = Timeslot(start_tick_lower_bound, end_tick_upper_bound)
+            if not self._can_arms_timeslot_fit(pair, task_timeslot):
+                continue
+
+            # 4. It is, Send a motion plan calculation request
+            # bin_dst_loc = [self.closest_bins[arm][trash.trash_type] for trash, arm in zip(trash_list, pair.arms)]
+            bin_dst_loc = self.find_bin_loc_for_arms(trash_list, used_arms)
+            arm_start_conf = [arm.get_arm_joint_values() for arm in used_arms]
+
+            if task_id is None:
+                task_id = uuid.uuid4()
+
+            pair.env.dispatch(task_id, pair.arms_idx[:n_trash], trash_conf, bin_dst_loc, arm_start_conf, real_arm_configs)
+            self.task_context[task_id] = {
+                'trash_list': trash_list,
+                'trash_group_picking_points': trash_group_picking_points
+            }
+            for arm in used_arms:
+                self.timeslots_per_arm[arm].append(task_timeslot)
+            return True
+
+        return False
+
+    def _can_arms_timeslot_fit(self, pair: ArmPair, timeslot: Timeslot):
+        pair_timeslots = self.timeslots_per_arm[pair.arms[0]]
+        if len(pair_timeslots) == 0:
+            return True
+
+        # We assume that timeslots are added in a linear fashion by time
+        last_timeslot = pair_timeslots[-1]
+        return last_timeslot.end_tick < timeslot.start_tick
+
+    def _handle_single_trash_that_passed_pnr(self):
+        """"
+        - Remove all trash from self.single_trash that passed the PNR (point of no return- a point in which this trash
+        cannot be paired in the future, and will stay forever alone),
+        - Try to assign each of those lonely trash to some arm. If it can't be assigned, give up on this trash,
+        it considered as a lost cause, and we won't pick it.
+        - the PNR in this case is a value on the 2nd axis.
+        """
+        for trash in self.single_trash:
+            if trash.get_curr_position()[1] - TRASH_INIT_Y_VAL >= self.max_dist_between_trash_pair_y_axis:
+                self.single_trash.remove(trash)
+                # try to assign a single trash task
+                self._try_dispatch_trash_to_arms(trash)
+
+    def _clear_timeslots(self):
+        # TODO: Finish function
+        now = ticker.now()
+        for pair in self.pairs:
+            timeslots = self.timeslots_per_arm[pair.arms[0]]

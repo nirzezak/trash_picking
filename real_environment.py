@@ -9,7 +9,7 @@ from background_environment import BackgroundEnv
 from environment import Environment, EnvironmentArgs
 from score import Score
 from summon_component import RandomSummonComponent, DeterministicSummonComponent, FixedAmountSummonComponent
-from task_manager import AdvancedTaskManager, SimpleTaskManager, ParallelTaskManager
+from task_manager import AdvancedTaskManager, SimpleTaskManager, ParallelTaskManager, AdvancedParallelTaskManager
 from configs.trash_configs import TrashConfig
 from multiarm_planner.ur5 import ArmState
 
@@ -24,13 +24,14 @@ class RealEnv(Environment):
         # Manage the real environment: clocks, and scoreboard
         back_connection_mode = p.DIRECT if env_args.connection_mode == p.GUI else p.GUI
         back_env_args = EnvironmentArgs(back_connection_mode, env_args.arms_path, env_args.trash_bins_path)
-        self.task_manager = ParallelTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args)
+        self.task_manager = AdvancedParallelTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args)
         self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL)
         self.correct = Score('correct', color=[0, 1, 0], location=[0, 0, 2])
         self.wrong = Score('wrong', color=[1, 0, 0], location=[0, 0, 2.2])
         self.lost = Score('lost', color=[0, 0, 1], location=[0, 0, 2.4])
         self.summon_component = FixedAmountSummonComponent(self.trash_generator, self.task_manager, self.summon_tick,
-                                                           trash=TrashConfig.METAL_CAN, amount=2)
+                                                           trash=TrashConfig.METAL_CAN, amount=1)
+        # self.summon_component = RandomSummonComponent(self.trash_generator, self.task_manager, self.summon_tick)
         time.sleep(3)
 
     def step(self):
@@ -98,9 +99,14 @@ class RealEnv(Environment):
         self.correct.increase_score(len(good_trash))
         self.wrong.increase_score(len(bad_trash))
 
-        for trash in good_trash:
-            self.trash_generator.remove_trash(trash)
-            self.task_manager.remove_trash(trash)
-        for trash in bad_trash:
-            self.trash_generator.remove_trash(trash)
-            self.task_manager.remove_trash(trash)
+        for trash_id in good_trash:
+            self.trash_generator.remove_trash(trash_id)
+            self.task_manager.remove_trash(trash_id)
+            if trash_id in self.conveyor.dont_convey:
+                self.conveyor.dont_convey.remove(trash_id)
+        for trash_id in bad_trash:
+            self.trash_generator.remove_trash(trash_id)
+            self.task_manager.remove_trash(trash_id)
+            if trash_id in self.conveyor.dont_convey:
+                self.conveyor.dont_convey.remove(trash_id)
+
