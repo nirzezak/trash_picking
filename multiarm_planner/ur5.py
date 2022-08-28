@@ -255,7 +255,7 @@ class InvalidArmState(Exception):
 class UR5:
     joint_epsilon = 1e-2
     configuration_unchanged_epsilon = 1e-3
-    max_unchanged_count = 30
+    max_unchanged_count = 5
 
     next_available_color = 0
     colors = [

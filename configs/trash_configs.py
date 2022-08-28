@@ -1,6 +1,6 @@
 from enum import Enum
 import trash_types
-TRASH_INIT_Y_VAL = -3
+TRASH_INIT_Y_VAL = -5.4
 # TODO- set TRASH_INIT_Y_VAL = -3.5 or less (and make the conveyor longer), then check if single trash picking is ok
 
 

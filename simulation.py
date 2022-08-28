@@ -1,11 +1,10 @@
 import argparse
-import logging
-import sys
 
 import real_environment
 import pybullet as p
 
 from environment import EnvironmentArgs
+from loggers import init_loggers
 
 
 def get_args() -> argparse.Namespace:
@@ -17,19 +16,6 @@ def get_args() -> argparse.Namespace:
                         help='JSON file that contain bins positions')
 
     return parser.parse_args()
-
-
-def init_loggers(debug: bool):
-    level = logging.DEBUG if debug else logging.INFO
-    log_format = '%(process)d:%(levelname)s: %(message)s'
-    logging.basicConfig(filename='log.txt', filemode='w', level=level, format=log_format)
-    root = logging.getLogger()
-
-    handler = logging.StreamHandler(sys.stderr)
-    handler.setLevel(level)
-    formatter = logging.Formatter(log_format)
-    handler.setFormatter(formatter)
-    root.addHandler(handler)
 
 
 if __name__ == '__main__':

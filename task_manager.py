@@ -2,6 +2,7 @@ import math
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+import logging
 
 import numpy as np
 
@@ -850,7 +851,7 @@ class SimpleTaskManager(TaskManagerComponent):
     @staticmethod
     def can_arm_get_to_point(arm, point):
         arm_loc = arm.get_pose()[0]
-        return all([(arm_loc[i] - point[i]) <= ARM_TO_TRASH_MAX_DIST[i] for i in range(2)])
+        return all([abs(arm_loc[i] - point[i]) <= ARM_TO_TRASH_MAX_DIST[i] for i in range(2)])
 
 
 class ParallelTaskManager(SimpleTaskManager):
@@ -865,7 +866,7 @@ class ParallelTaskManager(SimpleTaskManager):
         for i in range(0, len(self.arms), 2):
             arms = [self.arms[i], self.arms[i + 1]]
             arms_idx = [i, i + 1]
-            pair = ArmPair(arms, arms_idx, ParallelEnv(self.background_env_args))
+            pair = ArmPair(arms, arms_idx, ParallelEnv(self.background_env_args, arms_idx))
             pairs.append(pair)
 
         return pairs
@@ -886,6 +887,10 @@ class ParallelTaskManager(SimpleTaskManager):
         for pair in self.pairs:
             finished_tasks = pair.env.poll_dispatched_tasks()
             for finished_task in finished_tasks:
+                if finished_task.path is None:
+                    logging.warning(f'path not found for arms {pair.arms_idx}')
+                if finished_task.task_id not in self.task_context:
+                    logging.warning(f'wtf is this shit for real???')
                 if finished_task.path is not None and finished_task.task_id in self.task_context:
                     # Get all of the data from the task context and the calculation itself
                     path_to_trash, path_to_bin = finished_task.path
@@ -899,6 +904,7 @@ class ParallelTaskManager(SimpleTaskManager):
                         if picking_point[1] < trash.get_curr_position()[1]:
                             # trash is past the arm's picking point
                             is_past_picking_point = True
+                            logging.warning(f'this is bad!!!')
                             break
 
                     if is_past_picking_point:
@@ -914,7 +920,6 @@ class ParallelTaskManager(SimpleTaskManager):
                     path_to_trash_per_arm = split_arms_conf_lst(path_to_trash, 2)
                     path_to_bin_per_arm = split_arms_conf_lst(path_to_bin, 2)
                     start_tick = picking_tick - self._get_ticks_for_path_to_trash_heuristic(len(path_to_trash))
-                    # TODO: Check that start_tick > ticker.now()...?
 
                     for i in range(n_trash):
                         task = Task(trash_list[i], pair.arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i],
@@ -994,6 +999,12 @@ class AdvancedParallelTaskManager(ParallelTaskManager):
             picking_tick = ticker.now() + self._calc_ticks_to_destination_on_conveyor(trash_list[0],
                                                                                       trash_group_picking_points[0],
                                                                                       self.trash_velocity)
+            # Check if the arms can get to the picking points
+            for arm, picking_point in zip(pair.arms, trash_group_picking_points):
+                if not self.can_arm_get_to_point(arm, picking_point):
+                    # arm can't get to the trash
+                    logging.info(f'Fuck me')
+                    continue
 
             # 2. Check if the arms can reach the trash
             trash_conf = [trash.get_trash_config_at_loc(point) for trash, point in
@@ -1047,7 +1058,7 @@ class AdvancedParallelTaskManager(ParallelTaskManager):
         - the PNR in this case is a value on the 2nd axis.
         """
         for trash in self.single_trash:
-            if trash.get_curr_position()[1] - TRASH_INIT_Y_VAL >= self.max_dist_between_trash_pair_y_axis:
+            if trash.get_curr_position()[1] - trash_configs.TRASH_INIT_Y_VAL >= self.max_dist_between_trash_pair_y_axis:
                 self.single_trash.remove(trash)
                 # try to assign a single trash task
                 self._try_dispatch_trash_to_arms(trash)

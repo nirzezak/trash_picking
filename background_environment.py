@@ -7,7 +7,8 @@ import numpy as np
 
 import utils
 from environment import Environment, EnvironmentArgs
-from multiarm_planner.multiarm_environment import split_arms_conf
+from loggers import init_loggers
+from multiarm_planner.multiarm_environment import split_arms_conf, split_arms_conf_lst
 from task import PendingTask, PendingTaskResult
 
 MAX_ATTEMPTS_TO_FIND_PATH = 3
@@ -261,16 +262,7 @@ class BackgroundEnv(Environment):
         # get list of the arms configs when they reach the "rotated position"
         rotated_conf_per_arm = split_arms_conf(rotation_confs[-1], len(arms_idx))
 
-        # ------- Find a path from the rotation end point to bin by BIRRT -------
-        # TODO: we don't really need this, and it makes the movement uglier
-        path_to_bin = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], end_poses,
-                                              start_configs=rotated_conf_per_arm,
-                                              max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
-
-        if path_to_bin is None:
-            return None
-
-        return path_to_above + rotation_confs + path_to_bin
+        return path_to_above + rotation_confs
 
     def sync_arm_positions(self, real_arms_configs):
         """
@@ -315,7 +307,9 @@ class BackgroundEnv(Environment):
             abs(effector_position[0] - location[0]) > epsilon or
             abs(effector_position[2] - location[2]) > epsilon
         ):
-            logging.info(f'Arm {arm_idx} can\'t reach desired location')
+            logging.info(f'Arm {arm_idx} (right = {self.arms[arm_idx].is_right_arm}) can\'t reach desired location {location}')
+            logging.debug(f'effector_position[0] = {effector_position[0]}')
+            logging.debug(f'effector_position[2] = {effector_position[2]}')
             return False
 
         return True
@@ -358,12 +352,14 @@ class BackgroundEnv(Environment):
 
 
 class ParallelEnv(object):
-    def __init__(self, env_args: EnvironmentArgs):
+    def __init__(self, env_args: EnvironmentArgs, arms_idx: List[int]):
         self.env_args = env_args
         self.input_queue = mp.Queue()
         self.output_queue = mp.Queue()
+        self.arms_idx = arms_idx
 
-        self.worker = mp.Process(target=worker_runner, daemon=True, args=(self.env_args, self.input_queue, self.output_queue))
+        self.worker = mp.Process(target=worker_runner, daemon=True,
+                                 args=(self.env_args, self.input_queue, self.output_queue, self.arms_idx))
         self.worker.start()
 
     def dispatch(self, task_id, arms_idx: List[int], trash_conf: List[Dict], bin_locations, start_configs,
@@ -384,32 +380,52 @@ class ParallelEnv(object):
 
 
 class ParallelEnvWorker(object):
-    def __init__(self, env_args: EnvironmentArgs, input_queue: mp.Queue, output_queue: mp.Queue):
+    def __init__(self, env_args: EnvironmentArgs, input_queue: mp.Queue, output_queue: mp.Queue, arms_idx: List[int]):
         self.env = BackgroundEnv(env_args)
         self.input_queue = input_queue
         self.output_queue = output_queue
+        self.arms_idx = arms_idx
 
     def run(self):
+        prev_end_configs = {}
+        direction = 'right' if self.env.arms[self.arms_idx[0]].is_right_arm else 'left'
+        logging.info(f'The pair is {direction}-sided')
         while True:
             if not self.input_queue.empty():
                 # Got a task
-                logging.debug('Worker: Received new task!')
+                logging.info('Worker: Received new task!')
                 task: PendingTask = self.input_queue.get()
+                start_configs = []
+                for i in range(len(task.arms_idx)):
+                    if task.arms_idx[i] in prev_end_configs:
+                        start_configs.append(prev_end_configs[task.arms_idx[i]])
+                    else:
+                        start_configs.append(task.start_configs[i])
                 path = self.env.compute_motion_plan(task.arms_idx,
                                                     task.trash_conf,
                                                     task.bin_locations,
-                                                    task.start_configs,
+                                                    start_configs,
                                                     task.real_arms_configs)
 
                 # Send task result back
                 task_result = PendingTaskResult(task.task_id, path)
+                if path is not None:
+                    logging.debug(f'Found path')
+                    path_to_bin = path[1]
+                    path_to_bin_per_arm = split_arms_conf_lst(path_to_bin, len(task.arms_idx))
+                    for i in range(len(task.arms_idx)):
+                        prev_end_configs[task.arms_idx[i]] = path_to_bin_per_arm[i][-1]
+                else:
+                    logging.debug(f'Failed to find path')
                 self.output_queue.put(task_result)
-                logging.debug('Worker: Sending finished task!')
+                logging.info('Worker: Sending finished task!')
 
 
-def worker_runner(env_args: EnvironmentArgs, input_queue: mp.Queue, output_queue: mp.Queue):
+def worker_runner(env_args: EnvironmentArgs, input_queue: mp.Queue, output_queue: mp.Queue, arms_idx: List[int]):
     import psutil
     process = psutil.Process()
     process.nice(psutil.ABOVE_NORMAL_PRIORITY_CLASS)
-    worker = ParallelEnvWorker(env_args, input_queue, output_queue)
+    prefix = '_'.join([str(x) for x in arms_idx])
+    init_loggers(debug=True, prefix=prefix)
+    worker = ParallelEnvWorker(env_args, input_queue, output_queue, arms_idx)
     worker.run()

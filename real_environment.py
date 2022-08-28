@@ -5,13 +5,11 @@ import pybullet as p
 
 import environment
 import ticker
-from background_environment import BackgroundEnv
 from environment import Environment, EnvironmentArgs
 from score import Score
 from summon_component import RandomSummonComponent, DeterministicSummonComponent, FixedAmountSummonComponent, \
     TrashListSummonComponent
 from task_manager import AdvancedTaskManager, SimpleTaskManager, ParallelTaskManager, AdvancedParallelTaskManager
-from configs.trash_configs import TrashConfig
 from multiarm_planner.ur5 import ArmState
 
 
@@ -30,9 +28,9 @@ class RealEnv(Environment):
         self.correct = Score('correct', color=[0, 1, 0], location=[0, 0, 2])
         self.wrong = Score('wrong', color=[1, 0, 0], location=[0, 0, 2.2])
         self.lost = Score('lost', color=[0, 0, 1], location=[0, 0, 2.4])
-        self.summon_component = FixedAmountSummonComponent(self.trash_generator, self.task_manager, self.summon_tick,
-                                                           trash=TrashConfig.METAL_CAN, amount=1)
-        # self.summon_component = RandomSummonComponent(self.trash_generator, self.task_manager, self.summon_tick)
+        # self.summon_component = FixedAmountSummonComponent(self.trash_generator, self.task_manager, self.summon_tick,
+        #                                                    trash=TrashConfig.METAL_CAN, amount=1)
+        self.summon_component = RandomSummonComponent(self.trash_generator, self.task_manager, self.summon_tick)
         time.sleep(3)
 
     def step(self):
