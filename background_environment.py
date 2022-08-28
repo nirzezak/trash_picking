@@ -301,6 +301,7 @@ class BackgroundEnv(Environment):
 
         # Return arm to original state
         self.arms[arm_idx].set_arm_joints(original_values)
+        logging.debug(f'does_arm_reach: Arm {arm_idx} - location[0] = {location[0]}, effector_position[0] = {effector_position[0]}')
 
         # Make sure the gripper's X and Z axes are correct - assume we can tolerate error in the Y axis by waiting
         if (

@@ -66,7 +66,7 @@ TOUCHED = 1
 
 
 class Robotiq2F85:
-    TICKS_TO_CHANGE_GRIP = 100
+    TICKS_TO_CHANGE_GRIP = 75
 
     def __init__(self, p_simulation, ur5, color, replace_textures=True):
         """
@@ -446,7 +446,7 @@ class UR5:
                 elif self.state == ArmState.MOVING_TO_BIN:
                     # Finished moving to bin - drop trash in bin
                     self.state = ArmState.RELEASING_TRASH
-                    self.open_gripper()
+                    self.force_open_gripper()
 
     def _state_machine_wait_for_trash(self):
         distance = self.get_end_effector_pose()[0][1] - self.curr_task.trash.get_curr_position()[1]
@@ -467,6 +467,10 @@ class UR5:
         if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
             self.no_change_joint_state_count = 0
             self.prev_joint_state = None
+
+            # Bring gripper back to resting position after forcing it to over-open
+            self.open_gripper()
+
             self.state = ArmState.IDLE
             self.end_task()
 
@@ -577,6 +581,16 @@ class UR5:
                 targetPosition=self.end_effector.gripper_lower_limit,
                 force=10000,
                 maxVelocity=-5
+            )
+
+    def force_open_gripper(self):
+        if self.end_effector is not None:
+            self.p_simulation.setJointMotorControl2(
+                self.end_effector.body_id,
+                self.end_effector.joints[0],
+                self.p_simulation.VELOCITY_CONTROL,
+                targetVelocity=-5,
+                force=5
             )
 
     def get_pose(self):

@@ -19,7 +19,7 @@ from trash import Trash
 from trash_bin import Bin
 from trash_types import TrashTypes
 
-ARM_TO_TRASH_MAX_DIST = [0.73, 0.4]
+ARM_TO_TRASH_MAX_DIST = [0.73, 0.6]
 # ARM_TO_TRASH_MAX_DIST: max distance (in x,y axes) between the arm base and a picking point
 # in which the arm can get to the picking point
 ARMS_SAFETY_OFFSET = [0, 0.15, 0]
@@ -653,7 +653,7 @@ class SimpleTaskManager(TaskManagerComponent):
         self.closest_bins = {arm: self._find_closest_bins(arm, self.bins) for arm in self.arms}
 
         self.single_trash = []
-        self.arms_to_tasks = {arm: None for arm in self.arms}
+        self.arms_to_tasks = {arm: [] for arm in self.arms}
 
         pair_distance = self.pairs[0].arms[1].get_pose()[0][1] - self.pairs[0].arms[0].get_pose()[0][1]
         self.max_dist_between_trash_pair_y_axis = 2 * ARM_TO_TRASH_MAX_DIST[1] + pair_distance
@@ -726,7 +726,7 @@ class SimpleTaskManager(TaskManagerComponent):
         """
         for pair in self.pairs:
             # Check the arms are free
-            if self.arms_to_tasks[pair.arms[0]] is not None:
+            if len(self.arms_to_tasks[pair.arms[0]]) != 0:
                 continue
 
             # 1. find what will be the picking tick of the task if this arm pair will do the task
@@ -770,7 +770,7 @@ class SimpleTaskManager(TaskManagerComponent):
             for i in range(len(pair.arms)):
                 task = Task(trash_pair[i], pair.arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i],
                             path_to_bin_per_arm[i], pair.arms)
-                self.arms_to_tasks[pair.arms[i]] = task
+                self.arms_to_tasks[pair.arms[i]].append(task)
 
             print("Found paths for task!")
             return True
@@ -806,13 +806,15 @@ class SimpleTaskManager(TaskManagerComponent):
         and remove done tasks
         """
         for arm in self.arms:
-            task = self.arms_to_tasks[arm]
-            if task is not None:
+            tasks = self.arms_to_tasks[arm]
+            completed_tasks = 0
+            for task in tasks:
                 if task.state == TaskState.DONE:
-                    self.arms_to_tasks[arm] = None
+                    completed_tasks += 1
                 elif task.start_tick <= ticker.now() and task.state == TaskState.WAIT:
                     task.state = TaskState.DISPATCHED
                     arm.start_task(task)
+            self.arms_to_tasks[arm] = tasks[completed_tasks:]
 
     def _find_bin_loc_for_arms(self, trash_list: List[Trash], arms: List[UR5]) -> List[List[int]]:
         """
@@ -924,7 +926,7 @@ class ParallelTaskManager(SimpleTaskManager):
                     for i in range(n_trash):
                         task = Task(trash_list[i], pair.arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i],
                                     path_to_bin_per_arm[i], pair.arms)
-                        self.arms_to_tasks[pair.arms[i]] = task
+                        self.arms_to_tasks[pair.arms[i]].append(task)
 
     def _try_dispatch_trash_to_arms(self, trash1: Trash, trash2: Trash):
         trash_pair = [trash1, trash2]
@@ -1019,6 +1021,7 @@ class AdvancedParallelTaskManager(ParallelTaskManager):
             end_tick_upper_bound = picking_tick + 1500
             task_timeslot = Timeslot(start_tick_lower_bound, end_tick_upper_bound)
             if not self._can_arms_timeslot_fit(pair, task_timeslot):
+                logging.debug(f'Could not fit timeslot')
                 continue
 
             # 4. It is, Send a motion plan calculation request
