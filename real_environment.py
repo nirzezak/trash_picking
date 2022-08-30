@@ -25,7 +25,7 @@ class RealEnv(Environment):
         back_env_args = EnvironmentArgs(back_connection_mode, env_args.arms_path, env_args.trash_bins_path)
         self.task_manager = AdvancedParallelTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args)
         self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL)
-        self.correct = Score('correct', color=[0, 1, 0], location=[0, 0, 2])
+        self.correct = Score('correct', color=[0.133, 0.545, 0.133], location=[0, 0, 2])
         self.wrong = Score('wrong', color=[1, 0, 0], location=[0, 0, 2.2])
         self.lost = Score('lost', color=[0, 0, 1], location=[0, 0, 2.4])
         # self.summon_component = FixedAmountSummonComponent(self.trash_generator, self.task_manager, self.summon_tick,
@@ -108,4 +108,3 @@ class RealEnv(Environment):
             self.task_manager.remove_trash(trash_id)
             if trash_id in self.conveyor.dont_convey:
                 self.conveyor.dont_convey.remove(trash_id)
-

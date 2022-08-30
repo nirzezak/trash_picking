@@ -4,7 +4,7 @@ import pybullet as p
 
 
 class Score(object):
-    def __init__(self, prefix: str, color: Optional[List[int]] = None, location: Optional[List[int]] = None):
+    def __init__(self, prefix: str, color: Optional[List[float]] = None, location: Optional[List[int]] = None):
         if not location:
             location = [0, 0, 2]
         if not color:
