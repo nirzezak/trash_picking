@@ -1,4 +1,6 @@
-log.txt
+logs/main_log.txt
+logs/0_1_log.txt
+logs/2_3_log.txt
 *.pyc
 .idea
 
