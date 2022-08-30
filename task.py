@@ -12,6 +12,9 @@ if TYPE_CHECKING:
 
 
 class TaskState(Enum):
+    """
+    Different states a task can be in
+    """
     WAIT = auto()  # task waits to be executed
     DISPATCHED = auto()  # task is executed now
     DONE = auto()  # task finished
@@ -22,7 +25,7 @@ class Task(object):
                  path_to_bin: list, arms_involved: List[UR5]):
         """
         @param trash: The trash object
-        @param arm: The arm tasked with sorting the trash.
+        @param arm: The arm tasked with sorting the trash
         @param start_tick: The tick number in which the task should be started
         @param len_in_ticks: The amount of ticks it would take to do the task
         @param path_to_trash: list of the arm's configurations for moving to trash from the position before the task
@@ -43,6 +46,15 @@ class Task(object):
 class PendingTask(object):
     def __init__(self, task_id, arms_idx: List[int], trash_conf: List[Dict], bin_locations, start_configs,
                  real_arms_configs=None):
+        """
+        @param task_id: ID of the task being calculated
+        @param arms_idx: the arms tasked with sorting the trash
+        @param trash_conf: list of configurations of the trash objects involved. Contains their location in the picking
+          point
+        @param bin_locations: list of locations of the trash bins
+        @param start_configs: list of start configurations of the arms involved
+        @param real_arms_configs: list of current configurations of all arms in the simulation
+        """
         self.task_id = task_id
         self.arms_idx = arms_idx
         self.trash_conf = trash_conf
@@ -53,5 +65,9 @@ class PendingTask(object):
 
 class PendingTaskResult(object):
     def __init__(self, task_id, path):
+        """
+        @param task_id: ID of the task being calculated
+        @param path: The path calculated, or None if couldn't find a path
+        """
         self.task_id = task_id
         self.path = path
