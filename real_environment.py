@@ -8,7 +8,7 @@ import ticker
 from environment import Environment, EnvironmentArgs
 from score import Score
 from summon_component import RandomSummonComponent, DeterministicSummonComponent, FixedAmountSummonComponent, \
-    TrashListSummonComponent
+    TrashListSummonComponent, AdvancedRandomSummonComponent
 from task_manager import AdvancedTaskManager, SimpleTaskManager, ParallelTaskManager, AdvancedParallelTaskManager
 from multiarm_planner.ur5 import ArmState
 
@@ -30,8 +30,8 @@ class RealEnv(Environment):
         self.lost = Score('lost', color=[0, 0, 1], location=[0, 0, 2.4])
         # self.summon_component = FixedAmountSummonComponent(self.trash_generator, self.task_manager, self.summon_tick,
         #                                                    trash=TrashConfig.METAL_CAN, amount=1)
-        self.summon_component = RandomSummonComponent(self.trash_generator, self.task_manager, self.summon_tick)
-        time.sleep(3)
+        self.summon_component = AdvancedRandomSummonComponent(self.trash_generator, self.task_manager, self.summon_tick)
+        time.sleep(5)
 
     def step(self):
         self.summon_component.step()
