@@ -13,13 +13,13 @@ from environment import EnvironmentArgs
 from configs import trash_configs
 from multiarm_planner.multiarm_environment import split_arms_conf_lst
 from background_environment import BackgroundEnv, ParallelEnv
-from multiarm_planner.ur5 import Robotiq2F85, UR5
+from multiarm_planner.ur5 import Robotiq2F85, UR5, ArmState
 from task import Task, TaskState
 from trash import Trash
 from trash_bin import Bin
 from trash_types import TrashTypes
 
-ARM_TO_TRASH_MAX_DIST = [0.73, 0.6]
+ARM_TO_TRASH_MAX_DIST = [0.73, 0.4]
 # ARM_TO_TRASH_MAX_DIST: max distance (in x,y axes) between the arm base and a picking point
 # in which the arm can get to the picking point
 ARMS_SAFETY_OFFSET = [0, 0.15, 0]
@@ -811,7 +811,7 @@ class SimpleTaskManager(TaskManagerComponent):
             for task in tasks:
                 if task.state == TaskState.DONE:
                     completed_tasks += 1
-                elif task.start_tick <= ticker.now() and task.state == TaskState.WAIT:
+                elif task.start_tick <= ticker.now() and task.state == TaskState.WAIT and arm.state == ArmState.IDLE:
                     task.state = TaskState.DISPATCHED
                     arm.start_task(task)
             self.arms_to_tasks[arm] = tasks[completed_tasks:]
@@ -925,7 +925,7 @@ class ParallelTaskManager(SimpleTaskManager):
 
                     for i in range(n_trash):
                         task = Task(trash_list[i], pair.arms[i], start_tick, len_in_ticks, path_to_trash_per_arm[i],
-                                    path_to_bin_per_arm[i], pair.arms)
+                                    path_to_bin_per_arm[i], pair.arms[:n_trash])
                         self.arms_to_tasks[pair.arms[i]].append(task)
 
     def _try_dispatch_trash_to_arms(self, trash1: Trash, trash2: Trash):
@@ -1005,7 +1005,6 @@ class AdvancedParallelTaskManager(ParallelTaskManager):
             for arm, picking_point in zip(pair.arms, trash_group_picking_points):
                 if not self.can_arm_get_to_point(arm, picking_point):
                     # arm can't get to the trash
-                    logging.info(f'Fuck me')
                     continue
 
             # 2. Check if the arms can reach the trash
