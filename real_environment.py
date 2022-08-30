@@ -16,8 +16,8 @@ from multiarm_planner.ur5 import ArmState
 class RealEnv(Environment):
     def __init__(self, env_args: EnvironmentArgs, debug: bool):
         """"
-        :param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
-        @param debug: print debug messages flag
+        :param env_args: arguments on how to initialize the environment
+        :param debug: print debug messages flag
         """
         super().__init__(env_args.connection_mode, 0.075, env_args.arms_path, env_args.trash_bins_path)
 
@@ -29,12 +29,13 @@ class RealEnv(Environment):
         self.correct = Score('correct', color=[0.133, 0.545, 0.133], location=[0, 0, 2])
         self.wrong = Score('wrong', color=[1, 0, 0], location=[0, 0, 2.2])
         self.lost = Score('lost', color=[0, 0, 1], location=[0, 0, 2.4])
-        # self.summon_component = FixedAmountSummonComponent(self.trash_generator, self.task_manager, self.summon_tick,
-        #                                                    trash=TrashConfig.METAL_CAN, amount=1)
         self.summon_component = AdvancedRandomSummonComponent(self.trash_generator, self.task_manager, self.summon_tick)
         time.sleep(5)
 
     def step(self):
+        """
+        Main event loop of the simulation
+        """
         self.summon_component.step()
 
         # Call managing methods
@@ -63,6 +64,9 @@ class RealEnv(Environment):
         ticker.tick()
 
     def remove_lost_cause_trash(self):
+        """
+        Remove trash that fell on the floor. Will also increase the lost trash score
+        """
         contact_points = self.p_simulation.getContactPoints(bodyA=self.plane)
         body_uids = set([point[2] for point in contact_points])
 
@@ -76,12 +80,18 @@ class RealEnv(Environment):
                 if body_uid in self.conveyor.dont_convey:
                     # Remove ID from dont_convey list because newly spawned trash
                     # can have the same ID as old removed trash
-                    # TODO: Review this after merging with score stuff
                     self.conveyor.dont_convey.remove(body_uid)
 
         self.lost.increase_score(lost_trash_count)
 
     def check_inserted_trash(self):
+        """
+        Check trash that was inserted to a trash bin. Will also increase the correct/wrong
+        trash score
+
+        WARNING: The computation here is expensive, and will SIGNIFICANTLY slow the simulation.
+        Use only once every few steps instead of every step
+        """
         good_trash = set()
         bad_trash = set()
         for trash_bin in self.bins:

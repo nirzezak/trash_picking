@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 import pybullet as p
 
@@ -38,7 +40,7 @@ class Trash(object):
             'gripping_points': self.gripping_points
         }
 
-    def get_curr_gripping_points(self):
+    def get_curr_gripping_points(self) -> List[List[int]]:
         """
         Calculate the current gripping points, based on the current location,
         in world coordinates.
@@ -56,16 +58,28 @@ class Trash(object):
 
         return new_gripping_points
 
-    def get_curr_position(self):
+    def get_curr_position(self) -> List[int]:
+        """
+        Get current position of trash object (x,y,z only, not orientation)
+        """
         return self.p_simulation.getBasePositionAndOrientation(self.id)[0]
 
-    def get_id(self):
+    def get_id(self) -> int:
+        """
+        Get pybullet ID of this trash object
+        """
         return self.id
 
     def get_trash_config_at_loc(self, location):
+        """
+        Get the trash configuration, but at the given location
+        """
         conf = self.trash_config.copy()
         conf['location'] = location
         return conf
 
     def reset_friction(self):
+        """
+        Give the trash object its default friction back
+        """
         self.p_simulation.changeDynamics(self.get_id(), -1, lateralFriction=0.8)
