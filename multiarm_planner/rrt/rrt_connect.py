@@ -144,7 +144,7 @@ def birrt(start_conf,
                                             greedy,
                                             timeout)
     if path is not None:
-        logging.info(f"Found path with RRT-Connect: Took {num_iterations} iterations")
+        logging.debug(f"Found path with RRT-Connect: Took {num_iterations} iterations")
         return smooth_path(path, extend, collision, iterations=smooth), num_iterations, time
     logging.info("Couldn't find path with RRT-Connect")
     return None, iterations, time

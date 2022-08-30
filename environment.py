@@ -26,6 +26,13 @@ TRASH_SUMMON_INTERVAL = 2500
 FRAME_RATE = 1 / 240.
 
 
+class EnvironmentArgs(object):
+    def __init__(self, connection_mode, arms_path, trash_bins_path):
+        self.connection_mode = connection_mode
+        self.arms_path = arms_path
+        self.trash_bins_path = trash_bins_path
+
+
 class Environment(object):
     def __init__(self, connection_mode, conveyor_speed, arms_path, trash_bins_path, set_pybullet_utils_p=False):
         """"

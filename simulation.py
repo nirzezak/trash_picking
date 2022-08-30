@@ -1,9 +1,10 @@
 import argparse
-import logging
-import sys
 
 import real_environment
 import pybullet as p
+
+from environment import EnvironmentArgs
+from loggers import init_loggers
 
 
 def get_args() -> argparse.Namespace:
@@ -17,23 +18,11 @@ def get_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def init_loggers(debug: bool):
-    level = logging.DEBUG if debug else logging.INFO
-    log_format = '%(levelname)s: %(message)s'
-    logging.basicConfig(filename='log.txt', filemode='w', level=level, format=log_format)
-    root = logging.getLogger()
-
-    handler = logging.StreamHandler(sys.stderr)
-    handler.setLevel(level)
-    formatter = logging.Formatter(log_format)
-    handler.setFormatter(formatter)
-    root.addHandler(handler)
-
-
 if __name__ == '__main__':
     args = get_args()
     init_loggers(args.debug)
     connection_mode = p.DIRECT if args.back else p.GUI
-    env_gui = real_environment.RealEnv(connection_mode, args.arms, args.bins)
+    env_args = EnvironmentArgs(connection_mode, args.arms, args.bins)
+    env_gui = real_environment.RealEnv(env_args)
     while True:
         env_gui.step()

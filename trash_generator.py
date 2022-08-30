@@ -21,6 +21,13 @@ class TrashGenerator(object):
         self.trash.append(new_trash)
         return new_trash
 
+    def get_trash(self, trash_id: int) -> Optional[Trash]:
+        for t in self.trash:
+            if t.id == trash_id:
+                return t
+
+        return None
+
     def remove_trash(self, trash_uid: Optional[int] = None):
         """"
         If trash_uid=None, removes all trash

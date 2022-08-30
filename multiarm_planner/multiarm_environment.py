@@ -47,7 +47,7 @@ class MultiarmEnvironment:
     def setup_run(self, start_conf, specific_ur5s=None):
         self.ur5_group.setup(start_conf, specific_ur5s=specific_ur5s)
 
-    def _birrt(self, ur5_arms, start_configs, goal_configs, resolutions=0.1, timeout=10, rrt_only=False, collision_distance=None):
+    def _birrt(self, ur5_arms, start_configs, goal_configs, resolutions=0.1, timeout=1, rrt_only=False, collision_distance=None):
         self.setup_run(start_configs, specific_ur5s=ur5_arms)
 
         extend_fn = self.ur5_group.get_extend_fn(resolutions)

@@ -66,7 +66,7 @@ TOUCHED = 1
 
 
 class Robotiq2F85:
-    TICKS_TO_CHANGE_GRIP = 100
+    TICKS_TO_CHANGE_GRIP = 75
 
     def __init__(self, p_simulation, ur5, color, replace_textures=True):
         """
@@ -256,6 +256,7 @@ class UR5:
     joint_epsilon = 1e-2
     configuration_unchanged_epsilon = 1e-3
     max_unchanged_count = 30
+    max_ticks_in_conf = 100
 
     next_available_color = 0
     colors = [
@@ -275,8 +276,8 @@ class UR5:
         'arm': [1, 2, 3, 4, 5, 6]
     }
 
-    LOWER_LIMITS = [-2 * pi, -2 * pi, -pi, -2 * pi, -2 * pi, -2 * pi]
-    UPPER_LIMITS = [2 * pi, 2 * pi, pi, 2 * pi, 2 * pi, 2 * pi]
+    LOWER_LIMITS = [-20 * pi, -20 * pi, -10 * pi, -20 * pi, -20 * pi, -20 * pi]
+    UPPER_LIMITS = [20 * pi, 20 * pi, 10 * pi, 20 * pi, 20 * pi, 20 * pi]
 
     EEF_LINK_INDEX = 7
     UR5_MOVE_SPEED = 0.05
@@ -308,6 +309,7 @@ class UR5:
         # Detect getting stuck
         self.prev_joint_state = None
         self.no_change_joint_state_count = 0
+        self.ticks_in_conf = 0
 
         # Debug print: calculate how many ticks each conf took
         self.print_ticks_stat = False
@@ -414,15 +416,18 @@ class UR5:
 
         if self.print_ticks_stat:
             self.ticks_for_curr_conf_move += 1
+        self.ticks_in_conf += 1
 
         if self.first_config or \
                 self._are_configurations_close(current_joint_state, current_path[0], self.joint_epsilon) or \
-                self.no_change_joint_state_count == self.max_unchanged_count:
+                self.no_change_joint_state_count == self.max_unchanged_count or \
+                self.ticks_in_conf == self.max_ticks_in_conf:
             if not self.first_config:
                 # Reached target configuration
                 if self.print_ticks_stat:
                     self.ticks_stat[f'{self.state.name} #ticks per conf'].append(self.ticks_for_curr_conf_move)
                     self.ticks_for_curr_conf_move = 0
+                self.ticks_in_conf = 0
                 current_path.pop(0)
             else:
                 self.first_config = False
@@ -446,7 +451,7 @@ class UR5:
                 elif self.state == ArmState.MOVING_TO_BIN:
                     # Finished moving to bin - drop trash in bin
                     self.state = ArmState.RELEASING_TRASH
-                    self.open_gripper()
+                    self.force_open_gripper()
 
     def _state_machine_wait_for_trash(self):
         distance = self.get_end_effector_pose()[0][1] - self.curr_task.trash.get_curr_position()[1]
@@ -460,13 +465,19 @@ class UR5:
     def _state_machine_picking_trash(self):
         # Check if gripper picked trash
         self.no_change_joint_state_count = 0
+        self.ticks_in_conf = 0
         if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
             self.state = ArmState.MOVING_TO_BIN
 
     def _state_machine_releasing_trash(self):
         if self.current_tick - self.start_tick > type(self.end_effector).TICKS_TO_CHANGE_GRIP:
             self.no_change_joint_state_count = 0
+            self.ticks_in_conf = 0
             self.prev_joint_state = None
+
+            # Bring gripper back to resting position after forcing it to over-open
+            self.open_gripper()
+
             self.state = ArmState.IDLE
             self.end_task()
 
@@ -577,6 +588,16 @@ class UR5:
                 targetPosition=self.end_effector.gripper_lower_limit,
                 force=10000,
                 maxVelocity=-5
+            )
+
+    def force_open_gripper(self):
+        if self.end_effector is not None:
+            self.p_simulation.setJointMotorControl2(
+                self.end_effector.body_id,
+                self.end_effector.joints[0],
+                self.p_simulation.VELOCITY_CONTROL,
+                targetVelocity=-5,
+                force=5
             )
 
     def get_pose(self):

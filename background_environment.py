@@ -1,29 +1,71 @@
 import logging
-import time
+import multiprocessing as mp
+from typing import List, Dict
+
 import pybullet as p
 import numpy as np
 
 import utils
-from environment import Environment
-from multiarm_planner.multiarm_environment import split_arms_conf
+from environment import Environment, EnvironmentArgs
+from loggers import init_loggers
+from multiarm_planner.multiarm_environment import split_arms_conf, split_arms_conf_lst
+from task import PendingTask, PendingTaskResult
 
 MAX_ATTEMPTS_TO_FIND_PATH = 3
 
 
 class BackgroundEnv(Environment):
-    def __init__(self, connection_mode, arms_path, trash_bins_path):
+    def __init__(self, env_args: EnvironmentArgs):
         """"
         :param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
         """
-        super().__init__(connection_mode, 0, arms_path, trash_bins_path, set_pybullet_utils_p=True)
+        super().__init__(env_args.connection_mode, 0, env_args.arms_path, env_args.trash_bins_path, set_pybullet_utils_p=True)
 
-    def compute_motion_plan(self, arms_idx, trash, bin_locations, start_configs, real_arms=None):
+    def can_arms_do_task(self, arms_idx, trash, real_arms_configs):
+        """
+        Check if an arm can do a task, by checking if the arms reach all of the
+        trash objects
+
+        @param arms_idx: arm indices to find paths for
+        @param trash: list of trash configs, same order as in arms_idx
+        @param real_arms_configs: list of arms in the real environment, same order as in the background environment
+
+        @returns True if they reach, False otherwise
+        """
+        if real_arms_configs is not None:
+            self.sync_arm_positions(real_arms_configs)
+
+        arms_to_above_position_configs = []
+
+        for arm_idx, trash_conf in zip(arms_idx, trash):
+            trash = self.trash_generator.summon_trash(trash_conf)
+            grip_point = trash.get_curr_gripping_points()[0]
+            self.trash_generator.remove_trash()
+
+            above_grip_point = grip_point.copy()
+            above_grip_point[2] += 0.3
+
+            if self.arms[arm_idx].is_right_arm:
+                orientation = p.getQuaternionFromEuler([0, np.pi / 2, -np.pi / 2])
+
+            else:
+                orientation = p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])
+
+            end_pos = [above_grip_point, orientation]
+            arms_to_above_position_configs.append(end_pos)
+
+        return all(
+            self.does_arm_reach(arm_idx, arms_to_above_position_configs[idx][0], arms_to_above_position_configs[idx][1])
+            for idx, arm_idx in enumerate(arms_idx)
+        )
+
+    def compute_motion_plan(self, arms_idx, trash, bin_locations, start_configs, real_arms_configs=None):
         """"
         @param arms_idx: arm indices to find paths for
         @param trash: list of trash configs, same order as in arms_idx
         @param bin_locations: list of bin locations, same order as in arms_idx
         @param start_configs: list of start configs of the arms, same order as in arms_idx
-        @param real_arms: list of arms in the real environment, same order as in the background environment
+        @param real_arms_configs: list of arms in the real environment, same order as in the background environment
 
         @returns:
         if path is found, returns paths to trash, paths to bin
@@ -32,8 +74,8 @@ class BackgroundEnv(Environment):
 
         if no path found, return None
         """
-        if real_arms is not None:
-            self.sync_arm_positions(real_arms)
+        if real_arms_configs is not None:
+            self.sync_arm_positions(real_arms_configs)
 
         paths_to_trash = self.compute_path_to_trash(arms_idx, trash, start_configs)
         if paths_to_trash is None:
@@ -220,26 +262,17 @@ class BackgroundEnv(Environment):
         # get list of the arms configs when they reach the "rotated position"
         rotated_conf_per_arm = split_arms_conf(rotation_confs[-1], len(arms_idx))
 
-        # ------- Find a path from the rotation end point to bin by BIRRT -------
-        # TODO: we don't really need this, and it makes the movement uglier
-        path_to_bin = self.arms_manager.birrt([self.arms[arm_idx] for arm_idx in arms_idx], end_poses,
-                                              start_configs=rotated_conf_per_arm,
-                                              max_attempts=MAX_ATTEMPTS_TO_FIND_PATH)
+        return path_to_above + rotation_confs
 
-        if path_to_bin is None:
-            return None
-
-        return path_to_above + rotation_confs + path_to_bin
-
-    def sync_arm_positions(self, real_arms):
+    def sync_arm_positions(self, real_arms_configs):
         """
-        @param real_arms: list of the arms in the real environment
+        @param real_arms_configs: list of the arms in the real environment
 
         Sets every arm in the background environment to the configuration of their respective arm in the real environment
         """
 
-        for back_arm, real_arm in zip(self.arms, real_arms):
-            back_arm.set_arm_joints(real_arm.get_arm_joint_values())
+        for back_arm, real_arm_config in zip(self.arms, real_arms_configs):
+            back_arm.set_arm_joints(real_arm_config)
 
     def does_arm_reach(self, arm_idx, location, orientation=None, epsilon=0.03):
         """
@@ -268,13 +301,16 @@ class BackgroundEnv(Environment):
 
         # Return arm to original state
         self.arms[arm_idx].set_arm_joints(original_values)
+        logging.debug(f'does_arm_reach: Arm {arm_idx} - location[0] = {location[0]}, effector_position[0] = {effector_position[0]}')
 
         # Make sure the gripper's X and Z axes are correct - assume we can tolerate error in the Y axis by waiting
         if (
             abs(effector_position[0] - location[0]) > epsilon or
             abs(effector_position[2] - location[2]) > epsilon
         ):
-            logging.info(f'Arm {arm_idx} can\'t reach desired location')
+            logging.info(f'Arm {arm_idx} (right = {self.arms[arm_idx].is_right_arm}) can\'t reach desired location {location}')
+            logging.debug(f'effector_position[0] = {effector_position[0]}')
+            logging.debug(f'effector_position[2] = {effector_position[2]}')
             return False
 
         return True
@@ -314,3 +350,83 @@ class BackgroundEnv(Environment):
                     rotation_to_same_point = True
 
         return rotation_to_same_point
+
+
+class ParallelEnv(object):
+    def __init__(self, env_args: EnvironmentArgs, arms_idx: List[int]):
+        self.env_args = env_args
+        self.input_queue = mp.Queue()
+        self.output_queue = mp.Queue()
+        self.arms_idx = arms_idx
+
+        self.worker = mp.Process(target=worker_runner, daemon=True,
+                                 args=(self.env_args, self.input_queue, self.output_queue, self.arms_idx))
+        self.worker.start()
+
+    def dispatch(self, task_id, arms_idx: List[int], trash_conf: List[Dict], bin_locations, start_configs,
+                 real_arms_configs=None):
+        logging.debug('Master: Sending new task!')
+        task = PendingTask(task_id, arms_idx, trash_conf, bin_locations, start_configs,
+                           real_arms_configs=real_arms_configs)
+        self.input_queue.put(task)
+
+    def poll_dispatched_tasks(self) -> List[PendingTaskResult]:
+        finished_tasks = []
+        while not self.output_queue.empty():
+            logging.debug('Master: Received new finished task!')
+            task = self.output_queue.get()
+            finished_tasks.append(task)
+
+        return finished_tasks
+
+
+class ParallelEnvWorker(object):
+    def __init__(self, env_args: EnvironmentArgs, input_queue: mp.Queue, output_queue: mp.Queue, arms_idx: List[int]):
+        self.env = BackgroundEnv(env_args)
+        self.input_queue = input_queue
+        self.output_queue = output_queue
+        self.arms_idx = arms_idx
+
+    def run(self):
+        prev_end_configs = {}
+        direction = 'right' if self.env.arms[self.arms_idx[0]].is_right_arm else 'left'
+        logging.info(f'The pair is {direction}-sided')
+        while True:
+            if not self.input_queue.empty():
+                # Got a task
+                logging.info('Worker: Received new task!')
+                task: PendingTask = self.input_queue.get()
+                start_configs = []
+                for i in range(len(task.arms_idx)):
+                    if task.arms_idx[i] in prev_end_configs:
+                        start_configs.append(prev_end_configs[task.arms_idx[i]])
+                    else:
+                        start_configs.append(task.start_configs[i])
+                path = self.env.compute_motion_plan(task.arms_idx,
+                                                    task.trash_conf,
+                                                    task.bin_locations,
+                                                    start_configs,
+                                                    task.real_arms_configs)
+
+                # Send task result back
+                task_result = PendingTaskResult(task.task_id, path)
+                if path is not None:
+                    logging.debug(f'Found path')
+                    path_to_bin = path[1]
+                    path_to_bin_per_arm = split_arms_conf_lst(path_to_bin, len(task.arms_idx))
+                    for i in range(len(task.arms_idx)):
+                        prev_end_configs[task.arms_idx[i]] = path_to_bin_per_arm[i][-1]
+                else:
+                    logging.debug(f'Failed to find path')
+                self.output_queue.put(task_result)
+                logging.info('Worker: Sending finished task!')
+
+
+def worker_runner(env_args: EnvironmentArgs, input_queue: mp.Queue, output_queue: mp.Queue, arms_idx: List[int]):
+    import psutil
+    process = psutil.Process()
+    process.nice(psutil.ABOVE_NORMAL_PRIORITY_CLASS)
+    prefix = '_'.join([str(x) for x in arms_idx])
+    init_loggers(debug=True, prefix=prefix)
+    worker = ParallelEnvWorker(env_args, input_queue, output_queue, arms_idx)
+    worker.run()

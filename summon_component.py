@@ -11,6 +11,34 @@ class SummonComponent(ABC):
         pass
 
 
+class AdvancedRandomSummonComponent(SummonComponent):
+    """
+    This component summons a random trash every few ticks
+    """
+
+    def __init__(self, trash_generator, task_manager, summon_tick):
+        self.trash_generator = trash_generator
+        self.task_manager = task_manager
+        self.summon_tick = summon_tick
+        self.right_summon_tick = random.randint(0, 2000)
+        self.left_summon_tick = random.randint(0, 2000)
+
+    def step(self):
+        if ticker.now() % self.right_summon_tick == 0:
+            config = random.choice(list(TrashConfig))
+            signed_value = config.signed_value(-1)
+            trash = self.trash_generator.summon_trash(signed_value)
+            self.task_manager.add_trash(trash)
+            self.right_summon_tick = ticker.now() + random.randint(2000, 5000)
+
+        if ticker.now() % self.left_summon_tick == 0:
+            config = random.choice(list(TrashConfig))
+            signed_value = config.signed_value(1)
+            trash = self.trash_generator.summon_trash(signed_value)
+            self.task_manager.add_trash(trash)
+            self.left_summon_tick = ticker.now() + random.randint(2000, 5000)
+
+
 class RandomSummonComponent(SummonComponent):
     """
     This component summons a random trash every few ticks
