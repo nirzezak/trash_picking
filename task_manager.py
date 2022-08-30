@@ -635,7 +635,8 @@ class SimpleTaskManager(TaskManagerComponent):
     debugging of everything else.
     """
 
-    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env_args: EnvironmentArgs):
+    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env_args: EnvironmentArgs,
+                 debug: bool):
         """
         @param arms: A list of all of the available arms
         @param bins: A list of all of the available bins
@@ -643,10 +644,12 @@ class SimpleTaskManager(TaskManagerComponent):
         @param background_env_args: Arguments to initialize the background environment with
         only on the Y axis.
         axis 0 - x, axis 1 - y, axis 2 - z
+        @param debug: print debug messages flag
         """
         self.arms = arms
         self.bins = bins
         self.trash_velocity = trash_velocity
+        self.debug = debug
 
         self.background_env_args = background_env_args
         self.pairs = self._create_arm_pairs()
@@ -857,8 +860,12 @@ class SimpleTaskManager(TaskManagerComponent):
 
 
 class ParallelTaskManager(SimpleTaskManager):
-    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env_args: EnvironmentArgs):
-        super(ParallelTaskManager, self).__init__(arms, bins, trash_velocity, background_env_args)
+    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env_args: EnvironmentArgs,
+                 debug: bool):
+        """
+        @param debug: print debug messages flag
+        """
+        super(ParallelTaskManager, self).__init__(arms, bins, trash_velocity, background_env_args, debug)
         self.task_context = {}
         self.sync_back_env = BackgroundEnv(background_env_args)
 
@@ -868,7 +875,7 @@ class ParallelTaskManager(SimpleTaskManager):
         for i in range(0, len(self.arms), 2):
             arms = [self.arms[i], self.arms[i + 1]]
             arms_idx = [i, i + 1]
-            pair = ArmPair(arms, arms_idx, ParallelEnv(self.background_env_args, arms_idx))
+            pair = ArmPair(arms, arms_idx, ParallelEnv(self.background_env_args, arms_idx, self.debug))
             pairs.append(pair)
 
         return pairs
@@ -973,8 +980,12 @@ class Timeslot(object):
 
 
 class AdvancedParallelTaskManager(ParallelTaskManager):
-    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env_args: EnvironmentArgs):
-        super(AdvancedParallelTaskManager, self).__init__(arms, bins, trash_velocity, background_env_args)
+    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env_args: EnvironmentArgs,
+                 debug: bool):
+        """
+        @param debug: print debug messages flag
+        """
+        super(AdvancedParallelTaskManager, self).__init__(arms, bins, trash_velocity, background_env_args, debug)
         self.timeslots_per_arm: Dict[UR5, List[Timeslot]] = {arm: [] for arm in self.arms}
 
     def step(self):

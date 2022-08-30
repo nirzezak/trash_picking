@@ -353,14 +353,17 @@ class BackgroundEnv(Environment):
 
 
 class ParallelEnv(object):
-    def __init__(self, env_args: EnvironmentArgs, arms_idx: List[int]):
+    def __init__(self, env_args: EnvironmentArgs, arms_idx: List[int], debug: bool):
+        """
+        @param debug: print debug messages flag
+        """
         self.env_args = env_args
         self.input_queue = mp.Queue()
         self.output_queue = mp.Queue()
         self.arms_idx = arms_idx
 
         self.worker = mp.Process(target=worker_runner, daemon=True,
-                                 args=(self.env_args, self.input_queue, self.output_queue, self.arms_idx))
+                                 args=(self.env_args, self.input_queue, self.output_queue, self.arms_idx, debug))
         self.worker.start()
 
     def dispatch(self, task_id, arms_idx: List[int], trash_conf: List[Dict], bin_locations, start_configs,
@@ -422,11 +425,12 @@ class ParallelEnvWorker(object):
                 logging.info('Worker: Sending finished task!')
 
 
-def worker_runner(env_args: EnvironmentArgs, input_queue: mp.Queue, output_queue: mp.Queue, arms_idx: List[int]):
+def worker_runner(env_args: EnvironmentArgs, input_queue: mp.Queue, output_queue: mp.Queue, arms_idx: List[int],
+                  debug: bool):
     import psutil
     process = psutil.Process()
     process.nice(psutil.ABOVE_NORMAL_PRIORITY_CLASS)
     prefix = '_'.join([str(x) for x in arms_idx])
-    init_loggers(debug=True, prefix=prefix)
+    init_loggers(debug=debug, prefix=prefix)
     worker = ParallelEnvWorker(env_args, input_queue, output_queue, arms_idx)
     worker.run()

@@ -14,16 +14,17 @@ from multiarm_planner.ur5 import ArmState
 
 
 class RealEnv(Environment):
-    def __init__(self, env_args: EnvironmentArgs):
+    def __init__(self, env_args: EnvironmentArgs, debug: bool):
         """"
         :param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
+        @param debug: print debug messages flag
         """
         super().__init__(env_args.connection_mode, 0.075, env_args.arms_path, env_args.trash_bins_path)
 
         # Manage the real environment: clocks, and scoreboard
         back_connection_mode = p.DIRECT if env_args.connection_mode == p.GUI else p.GUI
         back_env_args = EnvironmentArgs(back_connection_mode, env_args.arms_path, env_args.trash_bins_path)
-        self.task_manager = AdvancedParallelTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args)
+        self.task_manager = AdvancedParallelTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args, debug)
         self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL)
         self.correct = Score('correct', color=[0.133, 0.545, 0.133], location=[0, 0, 2])
         self.wrong = Score('wrong', color=[1, 0, 0], location=[0, 0, 2.2])
