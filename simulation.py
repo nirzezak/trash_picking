@@ -8,9 +8,10 @@ from loggers import init_loggers
 
 
 def get_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description='Trash Picking Simulation')
-    parser.add_argument('--back', action='store_true', help='Display the background environment in the GUI instead')
-    parser.add_argument('--debug', action='store_true', help='Print debug messages')
+    parser = argparse.ArgumentParser(description='Waste Sorting With Multiple Arms Simulation')
+    parser.add_argument('--back', action='store_true',
+                        help='display the background environment in the GUI instead')
+    parser.add_argument('--debug', action='store_true', help='print debug messages')
     parser.add_argument('--arms', default='configs/arms_locations.json', help='JSON file that contain arms positions')
     parser.add_argument('--bins', default='configs/trash_bins_locations.json',
                         help='JSON file that contain bins positions')
