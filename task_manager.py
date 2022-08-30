@@ -19,25 +19,38 @@ from trash import Trash
 from trash_bin import Bin
 from trash_types import TrashTypes
 
-ARM_TO_TRASH_MAX_DIST = [0.73, 0.4]
-# ARM_TO_TRASH_MAX_DIST: max distance (in x,y axes) between the arm base and a picking point
+# max distance (in x,y axes) between the arm base and a picking point
 # in which the arm can get to the picking point
+ARM_TO_TRASH_MAX_DIST = [0.73, 0.4]
+# Lower bound for number of tick it takes for the arm to finish a task from the moment it picked the trash
 ARMS_SAFETY_OFFSET = [0, 0.15, 0]
 
-TICKS_TO_TRASH_LOW_BOUND = 700  # lower bound estimation for number of ticks it takes for an arm to move to a
+# lower bound estimation for number of ticks it takes for an arm to move to a
 # trash on the conveyor. Used to determine whether an arm can possibly do some task
-TICKS_FULL_TASK_LOW_BOUND = 2000  # lower bound estimation for number of ticks it takes for an arm to do a full task.
+TICKS_TO_TRASH_LOW_BOUND = 700
+# lower bound estimation for number of ticks it takes for an arm to do a full task.
 # Used to determine whether an arm can possibly do some task
+TICKS_FULL_TASK_LOW_BOUND = 2000
+# offset to be added to the bin location, when both arms go to the same bin
 TICKS_AFTER_GETTING_TO_TRASH_LOW_BOUND = TICKS_FULL_TASK_LOW_BOUND - TICKS_TO_TRASH_LOW_BOUND
 
 
 class TaskManagerComponent(ABC):
+    """
+    Interface to manage tasks
+    """
     @abstractmethod
     def add_trash(self, trash: Trash):
+        """
+        Function to add trash to manage
+        """
         pass
 
     @abstractmethod
     def step(self):
+        """
+        Function to call in each simulation step
+        """
         pass
 
     @staticmethod
@@ -70,6 +83,7 @@ class TaskManagerComponent(ABC):
 
         return closest_bins
 
+    # TODO: Remove this function and the next one
     def _find_closest_bin(self, trash: Trash, arm: UR5) -> List[int]:
         """
         Finds the closest bin to the arm, that handles this type of trash.
@@ -135,7 +149,12 @@ class TaskManagerComponent(ABC):
 
     def _get_ticks_for_full_task_heuristic(self, path_to_trash_len: int, path_to_bin_len: int) -> int:
         """"
-        Get estimation for number of ticks for a full task (moving to trash, picking, moving to bin, dropping)
+        Get an estimation for number of ticks for a full task (moving to trash, picking, moving to bin, dropping)
+
+        :param path_to_trash_len: length of path to trash
+        :param path_to_bin_len: length of path to bin
+
+        :returns: an estimation of the number of ticks it would take to do the full task
         """
         total_ticks = self._get_ticks_for_path_to_trash_heuristic(path_to_trash_len)
         total_ticks += 2 * Robotiq2F85.TICKS_TO_CHANGE_GRIP
@@ -144,31 +163,49 @@ class TaskManagerComponent(ABC):
 
     @staticmethod
     def _get_ticks_for_path_to_trash_heuristic(path_len: int) -> int:
+        """
+        Get an estimation for number of ticks for path to trash
+
+        :param path_len: length of path to trash
+
+        :returns: an estimation of the number of ticks it would take to do the path
+
+        Explanation:
+        The path is built from ur5 configuration list,
+        each configuration change takes some number of ticks (not fixed).
+        For each path we can calculate the series of #tick it took for each configuration change.
+        We noticed that for MOVING_TO_TRASH path, this "#ticks per configuration" series has a fixed pattern
+        (even when using different trash locations)
+        The pattern we found: 2,x,...,x,1,x,... where x is 47.4 in expectation (#ticks per conf series)
+
+        """
         if path_len < 10:
             print('WARNING: unexpected path to trash length, enhance the get_ticks_for_path_to_trash_heuristic')
             return path_len * 40  # arbitrary, we didn't see such examples
         return math.ceil(1 + 2 + 47.4 * (path_len - 2))
-        # Explanation:
-        # The path is built from ur5 configuration list,
-        # each configuration change takes some number of ticks (not fixed).
-        # For each path we can calculate the series of #tick it took for each configuration change.
-        # We noticed that for MOVING_TO_TRASH path, this "#ticks per configuration" series has a fixed pattern
-        # (even when using different trash locations)
-        # The pattern we found: 2,x,...,x,1,x,... where x is 47.4 in expectation (#ticks per conf series)
 
     @staticmethod
     def _get_ticks_for_path_to_bin_heuristic(path_len: int) -> int:
+        """
+        Get an estimation for number of ticks for path to bin
+
+        :param path_len: length of path to bin
+
+        :returns: an estimation of the number of ticks it would take to do the path
+
+        Explanation:
+        The path is built from ur5 configuration list,
+        each configuration change takes some number of ticks (not fixed).
+        For each path we can calculate the series of #tick it took for each configuration change.
+        We noticed that for MOVING_TO_BIN path, this "#ticks per configuration" series has a fixed pattern
+        (even when using different trash locations)
+        The pattern we found: 1,47,48,48,... (#ticks per conf series)
+        """
+
         if path_len < 3:
             print('WARNING: unexpected path to trash length, enhance the get_ticks_for_path_to_bin_heuristic')
             return path_len * 40  # arbitrary, we didn't see such examples
         return 1 + 47 + 48 * (path_len - 2)
-        # Explanation:
-        # The path is built from ur5 configuration list,
-        # each configuration change takes some number of ticks (not fixed).
-        # For each path we can calculate the series of #tick it took for each configuration change.
-        # We noticed that for MOVING_TO_BIN path, this "#ticks per configuration" series has a fixed pattern
-        # (even when using different trash locations)
-        # The pattern we found: 1,47,48,48,... (#ticks per conf series)
 
     @staticmethod
     def _calc_ticks_to_destination_on_conveyor(trash: Trash, trash_dest: List[int], trash_velocity: float) -> int:
@@ -177,7 +214,13 @@ class TaskManagerComponent(ABC):
         destination.
         Note that since the conveyor only moves objects in the Y axis, the
         distance is calculated based on that.
+
+        :param trash: the trash object to calculate for
+        :param trash_dest: destination of the trash object
+        :param trash_velocity: speed of the trash object
         """
+        # Note: We got this constant from measuring different speeds, not
+        # from something official from pybullet
         distance_per_tick = 0.0042 * trash_velocity
         curr_location = trash.get_curr_position()
         diff = abs(curr_location[1] - trash_dest[1])
@@ -185,6 +228,9 @@ class TaskManagerComponent(ABC):
 
 
 class AdvancedTaskManager(TaskManagerComponent):
+    """
+    WARNING: THIS MODULE IS DEPRECATED. Use with caution!
+    """
     def __init__(self, arms: List[UR5], arms_idx_pairs: List[List[int]], bins: List[Bin], trash_velocity: float,
                  background_env: BackgroundEnv):
         """
@@ -288,8 +334,6 @@ class AdvancedTaskManager(TaskManagerComponent):
         @returns The location of the closest bin,
         for shared bins, add some offset to avoid collisions when both arms need to work on that trash bin.
         """
-        # TODO: This function is probably useless, we can hardcode it, but I was
-        #   too lazy to do it now... we can leave it and cache the results
         arm_loc = arm.pose[0]
         arm_loc = np.array(arm_loc)
 
@@ -455,9 +499,6 @@ class AdvancedTaskManager(TaskManagerComponent):
 
                 else:
                     arm_start_conf.append(self.arms_to_tasks[arm][idx - 1].path_to_bin[-1])
-            # TODO - when we add task in the middle of the task list, we are ruining the arm_start_conf of next_task.
-            #   In the current implementation, we never add task in the middle of the task list,
-            #   so we don't have this problem
 
             trash_conf = [trash_lst[i].get_trash_config_at_loc(trash_group_picking_points[i])
                           for i in range(n_trash)]
@@ -624,6 +665,9 @@ class AdvancedTaskManager(TaskManagerComponent):
 
 @dataclass
 class ArmPair(object):
+    """
+    Object to handle arm pairs
+    """
     arms: List[UR5]
     arms_idx: List[int]
     env: Union[ParallelEnv, BackgroundEnv]
@@ -639,10 +683,8 @@ class SimpleTaskManager(TaskManagerComponent):
         """
         @param arms: A list of all of the available arms
         @param bins: A list of all of the available bins
-        @param trash_velocity: The velocity of the trash, we assume velocity
+        @param trash_velocity: The velocity of the trash, we assume velocity only on the Y axis
         @param background_env_args: Arguments to initialize the background environment with
-        only on the Y axis.
-        axis 0 - x, axis 1 - y, axis 2 - z
         """
         self.arms = arms
         self.bins = bins
@@ -659,6 +701,11 @@ class SimpleTaskManager(TaskManagerComponent):
         self.max_dist_between_trash_pair_y_axis = 2 * ARM_TO_TRASH_MAX_DIST[1] + pair_distance
 
     def _create_arm_pairs(self) -> List[ArmPair]:
+        """
+        Create the arms pairs object
+
+        :returns: initialized list of arms pairs
+        """
         pairs = []
         assert len(self.arms) % 2 == 0
 
@@ -673,10 +720,11 @@ class SimpleTaskManager(TaskManagerComponent):
 
     def add_trash(self, trash: Trash):
         """
-        @param trash: The trash to add
         Try to find a trash pair for @param trash,
         if a pair is found, give this 2 trash task to a pair of arms (if possible)
         otherwise, add @param trash to self.single_trash list
+
+        @param trash: The trash to add
         """
         for older_trash in self.single_trash:
             if self._can_be_trash_pair(trash, older_trash) and self._add_trash_task_to_arms(trash, older_trash):
@@ -686,21 +734,22 @@ class SimpleTaskManager(TaskManagerComponent):
         self.single_trash.append(trash)
 
     def step(self):
+        """
+        See TaskManagerComponent
+        """
         self._notify_arms_and_remove_completed_tasks()
 
     def remove_trash(self, trash_uid: int):
         """
-        Removes trash:
-        - Removes from self.single_trash list (if exists)
-        - Removes the Task for this trash (if exists)
+        Removes trash from self.single_trash list (if exists). We do not handle
+        the case of a trash being a part of a task
+
+        :param trash_uid: ID of the trash object
         """
         for i in range(len(self.single_trash)):
             if self.single_trash[i].id == trash_uid:
                 self.single_trash.pop(i)
                 return
-
-        # Currently, Shir doesn't handle the case of a 2-arm task being canceled
-        # so do nothing
 
     def _can_be_trash_pair(self, trash1: Trash, trash2: Trash):
         """"
@@ -708,6 +757,11 @@ class SimpleTaskManager(TaskManagerComponent):
         trash1, trash2 can be a trash pair if:
         1. trash1 y axis != trash2 y axis
         2. distance(trash1 y axis, trash2 y axis) < self.max_dist_between_trash_pair_y_axis
+
+        :param trash1: first trash
+        :param trash2: second trash
+
+        :returns: True if they can be a pair, False otherwise
         """
         trash1_y = trash1.get_curr_position()[1]
         trash2_y = trash2.get_curr_position()[1]
@@ -780,9 +834,10 @@ class SimpleTaskManager(TaskManagerComponent):
     @staticmethod
     def _calc_trash_group_picking_point(arms: List[UR5], trash_group: List[Trash]):
         """
-        @param arms: list of 2 arms
-        @param trash_group: list of 2 trash to be picked by the arms accordingly (arms[i] picks trash_pair[i])
-        Returns best possible picking points (as list) for the given arms to pick the trash pair *together*
+        :param arms: list of 2 arms
+        :param trash_group: list of 2 trash to be picked by the arms accordingly (arms[i] picks trash_pair[i])
+
+        :returns: best possible picking points (as list) for the given arms to pick the trash pair *together*
         (according to the order in @param trash_pair).
         Best picking point: when the average y axis value of the pair trash == average y axis value of the arms
         """
@@ -851,18 +906,41 @@ class SimpleTaskManager(TaskManagerComponent):
         return bin_dst_loc
 
     @staticmethod
-    def can_arm_get_to_point(arm, point):
+    def can_arm_get_to_point(arm: UR5, point: List[float]):
+        """
+        Check approximately if an arm can get to a point in space
+
+        :param arm: arm to check for
+        :param point: destination point of the arm
+        """
         arm_loc = arm.get_pose()[0]
+        # We only check for x,y and not for z, hence range(2) and not range(3)
         return all([abs(arm_loc[i] - point[i]) <= ARM_TO_TRASH_MAX_DIST[i] for i in range(2)])
 
 
 class ParallelTaskManager(SimpleTaskManager):
+    """
+    This task manager dispatches tasks to free arms, but does that in a way
+    that doesn't stop the simulation (that is, the path calculation is done
+    in parallel to the simulation)
+    """
     def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env_args: EnvironmentArgs):
+        """
+        @param arms: A list of all of the available arms
+        @param bins: A list of all of the available bins
+        @param trash_velocity: The velocity of the trash, we assume velocity only on the Y axis
+        @param background_env_args: Arguments to initialize the background environment with
+        """
         super(ParallelTaskManager, self).__init__(arms, bins, trash_velocity, background_env_args)
         self.task_context = {}
         self.sync_back_env = BackgroundEnv(background_env_args)
 
     def _create_arm_pairs(self) -> List[ArmPair]:
+        """
+        Create the arms pairs object
+
+        :returns: initialized list of arms pairs
+        """
         pairs = []
         assert len(self.arms) % 2 == 0
         for i in range(0, len(self.arms), 2):
@@ -874,6 +952,13 @@ class ParallelTaskManager(SimpleTaskManager):
         return pairs
 
     def add_trash(self, trash: Trash):
+        """
+        Try to find a trash pair for @param trash,
+        if a pair is found, give this 2 trash task to a pair of arms (if possible)
+        otherwise, add @param trash to self.single_trash list
+
+        @param trash: The trash to add
+        """
         for older_trash in self.single_trash:
             if self._can_be_trash_pair(trash, older_trash) and self._try_dispatch_trash_to_arms(trash, older_trash):
                 self.single_trash.remove(older_trash)
@@ -882,10 +967,16 @@ class ParallelTaskManager(SimpleTaskManager):
         self.single_trash.append(trash)
 
     def step(self):
+        """
+        See TaskManagerComponent
+        """
         self._poll_environments()
         self._notify_arms_and_remove_completed_tasks()
 
     def _poll_environments(self):
+        """
+        Poll the background environments for completed path calculations
+        """
         for pair in self.pairs:
             finished_tasks = pair.env.poll_dispatched_tasks()
             for finished_task in finished_tasks:
@@ -906,7 +997,7 @@ class ParallelTaskManager(SimpleTaskManager):
                         if picking_point[1] < trash.get_curr_position()[1]:
                             # trash is past the arm's picking point
                             is_past_picking_point = True
-                            logging.warning(f'this is bad!!!')
+                            logging.warning(f'Picking point was passed, dropping task')
                             break
 
                     if is_past_picking_point:
@@ -929,10 +1020,17 @@ class ParallelTaskManager(SimpleTaskManager):
                         self.arms_to_tasks[pair.arms[i]].append(task)
 
     def _try_dispatch_trash_to_arms(self, trash1: Trash, trash2: Trash):
+        """
+        Try to dispatch trash pairs to the arms pairs. The task would be
+        officially dispatched to a pair when the background environment of that
+        pair finished the calculation
+
+        :param trash1: first trash object
+        :param trash2: second trash object
+        """
         trash_pair = [trash1, trash2]
         task_id = None
         for pair in self.pairs:
-            # TODO: Convert this to use just the pair, it is useless to just use the arm
             if self.arms_to_tasks[pair.arms[0]] is not None:
                 continue
 
@@ -967,23 +1065,48 @@ class ParallelTaskManager(SimpleTaskManager):
 
 
 class Timeslot(object):
+    """
+    Object representing a slot of time
+    """
     def __init__(self, start_tick: int, end_tick: int):
         self.start_tick = start_tick
         self.end_tick = end_tick
 
 
 class AdvancedParallelTaskManager(ParallelTaskManager):
+    """
+    This task manager dispatches tasks arms in a parallel way, and handles
+    both several tasks to some arm, and also arms pairs throwing a single trash
+    object
+    """
     def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env_args: EnvironmentArgs):
+        """
+        @param arms: A list of all of the available arms
+        @param bins: A list of all of the available bins
+        @param trash_velocity: The velocity of the trash, we assume velocity only on the Y axis
+        @param background_env_args: Arguments to initialize the background environment with
+        """
         super(AdvancedParallelTaskManager, self).__init__(arms, bins, trash_velocity, background_env_args)
         self.timeslots_per_arm: Dict[UR5, List[Timeslot]] = {arm: [] for arm in self.arms}
 
     def step(self):
+        """
+        See TaskManagerComponent
+        """
         self._poll_environments()
         self._handle_single_trash_that_passed_pnr()
         self._notify_arms_and_remove_completed_tasks()
         self._clear_timeslots()
 
     def _try_dispatch_trash_to_arms(self, trash1: Trash, trash2: Optional[Trash] = None):
+        """
+        Try to dispatch trash pairs (or a single trash, if trash2 is None) to
+        the arms pairs. The task would be officially dispatched to a pair when
+        the background environment of that pair finished the calculation
+
+        :param trash1: first trash object
+        :param trash2: second trash object (optional)
+        """
         if trash2 is None:
             trash_list = [trash1]
         else:
@@ -1043,6 +1166,12 @@ class AdvancedParallelTaskManager(ParallelTaskManager):
         return False
 
     def _can_arms_timeslot_fit(self, pair: ArmPair, timeslot: Timeslot):
+        """
+        Can an arms pair fit this task to its schedule
+
+        :param pair: The pair of arms that might do the task
+        :param timeslot: How long the task takes
+        """
         pair_timeslots = self.timeslots_per_arm[pair.arms[0]]
         if len(pair_timeslots) == 0:
             return True
@@ -1066,6 +1195,9 @@ class AdvancedParallelTaskManager(ParallelTaskManager):
                 self._try_dispatch_trash_to_arms(trash)
 
     def _clear_timeslots(self):
+        """
+        Clear timeslots that already finished
+        """
         # TODO: Finish function
         now = ticker.now()
         for pair in self.pairs:

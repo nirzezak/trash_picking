@@ -28,6 +28,11 @@ FRAME_RATE = 1 / 240.
 
 class EnvironmentArgs(object):
     def __init__(self, connection_mode, arms_path, trash_bins_path):
+        """
+        @param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
+        @param arms_path: path to arms JSON file
+        @param trash_bins_path: path to trash bins JSON file
+        """
         self.connection_mode = connection_mode
         self.arms_path = arms_path
         self.trash_bins_path = trash_bins_path
@@ -58,7 +63,7 @@ class Environment(object):
         self.arms_manager = multiarm_environment.MultiarmEnvironment(self.p_simulation, self.arms, visualize=False)
         self.conveyor = Conveyor(self.p_simulation, CONVEYOR_LOCATION, speed=conveyor_speed, arms=self.arms)
 
-        self.trash_generator = TrashGenerator(self.p_simulation, TRASH_SUMMON_INTERVAL, [1, 2, 0.5], CONVEYOR_LOCATION)
+        self.trash_generator = TrashGenerator(self.p_simulation, [1, 2, 0.5], CONVEYOR_LOCATION)
 
     def _load_bins(self):
         """

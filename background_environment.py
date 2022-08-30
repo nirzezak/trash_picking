@@ -17,9 +17,10 @@ MAX_ATTEMPTS_TO_FIND_PATH = 3
 class BackgroundEnv(Environment):
     def __init__(self, env_args: EnvironmentArgs):
         """"
-        :param connection_mode: pybullet simulation connection mode. e.g.: pybullet.GUI, pybullet.DIRECT
+        :param env_args: arguments on how to initialize the environment
         """
-        super().__init__(env_args.connection_mode, 0, env_args.arms_path, env_args.trash_bins_path, set_pybullet_utils_p=True)
+        super().__init__(env_args.connection_mode, 0, env_args.arms_path, env_args.trash_bins_path,
+                         set_pybullet_utils_p=True)
 
     def can_arms_do_task(self, arms_idx, trash, real_arms_configs):
         """
@@ -354,6 +355,10 @@ class BackgroundEnv(Environment):
 
 class ParallelEnv(object):
     def __init__(self, env_args: EnvironmentArgs, arms_idx: List[int]):
+        """
+        :param env_args: arguments on how to initialize the environment
+        :param arms_idx: List of indices of the arms this parallel environment handles
+        """
         self.env_args = env_args
         self.input_queue = mp.Queue()
         self.output_queue = mp.Queue()
@@ -365,12 +370,25 @@ class ParallelEnv(object):
 
     def dispatch(self, task_id, arms_idx: List[int], trash_conf: List[Dict], bin_locations, start_configs,
                  real_arms_configs=None):
+        """
+        Dispatch a path calculation request to the background process
+
+        :param task_id: ID of the task being calculated
+        :param arms_idx: arm indices to find paths for
+        :param trash: list of trash configs, same order as in arms_idx
+        :param bin_locations: list of bin locations, same order as in arms_idx
+        :param start_configs: list of start configs of the arms, same order as in arms_idx
+        :param real_arms_configs: list of arms in the real environment, same order as in the background environment
+        """
         logging.debug('Master: Sending new task!')
         task = PendingTask(task_id, arms_idx, trash_conf, bin_locations, start_configs,
                            real_arms_configs=real_arms_configs)
         self.input_queue.put(task)
 
     def poll_dispatched_tasks(self) -> List[PendingTaskResult]:
+        """
+        Returns a list of completed path calculation requests
+        """
         finished_tasks = []
         while not self.output_queue.empty():
             logging.debug('Master: Received new finished task!')
@@ -382,12 +400,22 @@ class ParallelEnv(object):
 
 class ParallelEnvWorker(object):
     def __init__(self, env_args: EnvironmentArgs, input_queue: mp.Queue, output_queue: mp.Queue, arms_idx: List[int]):
+        """
+        :param env_args: arguments on how to initialize the environment
+        :param input_queue: Queue used to receive tasks
+        :param output_queue: Queue used to send completed tasks
+        :param arms_idx: List of indices of the arms this parallel environment handles
+        """
         self.env = BackgroundEnv(env_args)
         self.input_queue = input_queue
         self.output_queue = output_queue
         self.arms_idx = arms_idx
 
     def run(self):
+        """
+        Main event loop of the worker, gets tasks from the input queue, calculate
+        them, and then put results in the output queue
+        """
         prev_end_configs = {}
         direction = 'right' if self.env.arms[self.arms_idx[0]].is_right_arm else 'left'
         logging.info(f'The pair is {direction}-sided')
@@ -423,6 +451,14 @@ class ParallelEnvWorker(object):
 
 
 def worker_runner(env_args: EnvironmentArgs, input_queue: mp.Queue, output_queue: mp.Queue, arms_idx: List[int]):
+    """
+    Utility function to run worker process
+
+    :param env_args: arguments on how to initialize the environment
+    :param input_queue: Queue used to receive tasks
+    :param output_queue: Queue used to send completed tasks
+    :param arms_idx: List of indices of the arms this parallel environment handles
+    """
     import psutil
     process = psutil.Process()
     process.nice(psutil.ABOVE_NORMAL_PRIORITY_CLASS)
