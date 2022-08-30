@@ -24,6 +24,6 @@ if __name__ == '__main__':
     init_loggers(args.debug)
     connection_mode = p.DIRECT if args.back else p.GUI
     env_args = EnvironmentArgs(connection_mode, args.arms, args.bins)
-    env_gui = real_environment.RealEnv(env_args)
+    env_gui = real_environment.RealEnv(env_args, args.debug)
     while True:
         env_gui.step()

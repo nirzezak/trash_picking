@@ -679,16 +679,19 @@ class SimpleTaskManager(TaskManagerComponent):
     debugging of everything else.
     """
 
-    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env_args: EnvironmentArgs):
+    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env_args: EnvironmentArgs,
+                 debug: bool):
         """
         @param arms: A list of all of the available arms
         @param bins: A list of all of the available bins
         @param trash_velocity: The velocity of the trash, we assume velocity only on the Y axis
         @param background_env_args: Arguments to initialize the background environment with
+        @param debug: print debug messages flag
         """
         self.arms = arms
         self.bins = bins
         self.trash_velocity = trash_velocity
+        self.debug = debug
 
         self.background_env_args = background_env_args
         self.pairs = self._create_arm_pairs()
@@ -924,14 +927,16 @@ class ParallelTaskManager(SimpleTaskManager):
     that doesn't stop the simulation (that is, the path calculation is done
     in parallel to the simulation)
     """
-    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env_args: EnvironmentArgs):
+    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env_args: EnvironmentArgs,
+                 debug: bool):
         """
         @param arms: A list of all of the available arms
         @param bins: A list of all of the available bins
         @param trash_velocity: The velocity of the trash, we assume velocity only on the Y axis
         @param background_env_args: Arguments to initialize the background environment with
+        @param debug: print debug messages flag
         """
-        super(ParallelTaskManager, self).__init__(arms, bins, trash_velocity, background_env_args)
+        super(ParallelTaskManager, self).__init__(arms, bins, trash_velocity, background_env_args, debug)
         self.task_context = {}
         self.sync_back_env = BackgroundEnv(background_env_args)
 
@@ -946,7 +951,7 @@ class ParallelTaskManager(SimpleTaskManager):
         for i in range(0, len(self.arms), 2):
             arms = [self.arms[i], self.arms[i + 1]]
             arms_idx = [i, i + 1]
-            pair = ArmPair(arms, arms_idx, ParallelEnv(self.background_env_args, arms_idx))
+            pair = ArmPair(arms, arms_idx, ParallelEnv(self.background_env_args, arms_idx, self.debug))
             pairs.append(pair)
 
         return pairs
@@ -1079,14 +1084,16 @@ class AdvancedParallelTaskManager(ParallelTaskManager):
     both several tasks to some arm, and also arms pairs throwing a single trash
     object
     """
-    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env_args: EnvironmentArgs):
+    def __init__(self, arms: List[UR5], bins: List[Bin], trash_velocity: float, background_env_args: EnvironmentArgs,
+                 debug: bool):
         """
         @param arms: A list of all of the available arms
         @param bins: A list of all of the available bins
         @param trash_velocity: The velocity of the trash, we assume velocity only on the Y axis
         @param background_env_args: Arguments to initialize the background environment with
+        @param debug: print debug messages flag
         """
-        super(AdvancedParallelTaskManager, self).__init__(arms, bins, trash_velocity, background_env_args)
+        super(AdvancedParallelTaskManager, self).__init__(arms, bins, trash_velocity, background_env_args, debug)
         self.timeslots_per_arm: Dict[UR5, List[Timeslot]] = {arm: [] for arm in self.arms}
 
     def step(self):
