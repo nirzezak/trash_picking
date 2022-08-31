@@ -40,7 +40,7 @@ TODO
   * Forward Kinematics
   * Arm movement
 
- All of which can be found in `multiarm_planner/ur5.py`
+  All of which can be found in `multiarm_planner/ur5.py`
 
 * Motion planning
 
