@@ -44,7 +44,7 @@ All of which can be found in `multiarm_planner/ur5.py`
 
 #### Motion planning for multiple arms using BiRRT
 * Taken directly from [Multiarm Motion planner](https://github.com/galmw/centralized-multiarm-drrt)
-* Minor adjustments that separate the algorithm from the simulation
+ * Minor adjustments that separate the algorithm from the simulation
 * All relevant code is in `multiarm_planner`
 * BiRRT algorithm implementation - `multiarm_planner/rrt/rrt_connect.py`
 * Assuming an initialized `MultiarmEnvironment` (`multiarm_planner/multiarm_environment.py`) - usage of multi-arm BiRRT is through the `birrt` method in `MultiarmEnvironment`
