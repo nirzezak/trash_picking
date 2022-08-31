@@ -8,7 +8,7 @@ TODO - add a video here
 * Use Python 3.9+ (former versions haven't been tested)
 * The required Python libraries are defined in: `requirements.txt`
 
-## User instructions
+## User Instructions
 ### GUI
 TODO
 
@@ -26,6 +26,23 @@ TODO
   * `python main.py` - runs the waste sorting simulation with the default configuration files (4 arms) 
   * `python main.py --arms "arms_conf.json" --bins "bins_conf.json"` - runs the waste sorting simulation with `arms_conf.json`, `bins_conf.json` configuration files
   * `python main.py --back` - run the waste sorting program but instead of presenting the sorting simulation, present the background environments in the GUI
+ 
+## Package Details
+### Components
+* UR5 robot arm and Robotiq 2F-85 gripper, including:
+  * Opening and closing of gripper
+  * State machine designed for waste sorting
+ 
+  And also features found in Gal Wiernik's acknowledged repository (some with minor adjustments):
+  * Setup of arm and gripper - loading URDF models and setting gripper constraints
+  * Collision checking
+  * Inverse Kinematics
+  * Forward Kinematics
+  * Arm movement
+
+ All of which can be found in `multiarm_planner/ur5.py`
+
+* Motion planning
 
 ## Acknowledgments
 [Multiarm Motion planner, Gal Wiernik](https://github.com/galmw/centralized-multiarm-drrt)
