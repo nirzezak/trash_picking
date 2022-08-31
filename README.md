@@ -2,11 +2,11 @@
 TODO - add a video here
 
 * Waste sorting with multiple arms simulation using motion planing algorithms and multiprocessing
-* Project for the workshop in algorithms for robot motion planning in Tel Aviv university 	
+* Project for the workshop in algorithms for robot motion planning in Tel Aviv University 	
 
 ## Requirements
 * Use Python 3.9+ (former versions haven't been tested)
-* The reqired Python libraries are defined in: `reqirements.txt`
+* The required Python libraries are defined in: `requirements.txt`
 
 ## User instructions
 ### GUI
@@ -21,11 +21,11 @@ TODO
   * --debug: print debug messages
   * --arms ARMS: JSON file that contain arms positions
   * --bins BINS: JSON file that contain bins positions
-* The default configuration files: `configs/arms_locations.json` and `configs/trash_bins_locations.json`, use them as examples for configuration files
+* The default configuration files are: `configs/arms_locations.json` and `configs/trash_bins_locations.json`. Use them as examples for configuration files
 * Examples:
   * `python main.py` - runs the waste sorting simulation with the default configuration files (4 arms) 
   * `python main.py --arms "arms_conf.json" --bins "bins_conf.json"` - runs the waste sorting simulation with `arms_conf.json`, `bins_conf.json` configuration files
-  * `python main.py --back` - run the waste sorting program but instead of presenting the sorting simulation, present in the GUI all the background environments
+  * `python main.py --back` - run the waste sorting program but instead of presenting the sorting simulation, present the background environments in the GUI
 
 ## Acknowledgments
 [Multiarm Motion planner, Gal Wiernik](https://github.com/galmw/centralized-multiarm-drrt)
