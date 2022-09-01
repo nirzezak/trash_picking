@@ -18,11 +18,15 @@ def get_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-if __name__ == '__main__':
-    args = get_args()
-    init_loggers(args.debug)
-    connection_mode = p.DIRECT if args.back else p.GUI
-    env_args = EnvironmentArgs(connection_mode, args.arms, args.bins)
-    env_gui = real_environment.RealEnv(env_args)
+def run(debug, back, arms_path, bins_path, summon_component=None, task_manager_component=None):
+    init_loggers(debug)
+    connection_mode = p.DIRECT if back else p.GUI
+    env_args = EnvironmentArgs(connection_mode, arms_path, bins_path)
+    env_gui = real_environment.RealEnv(env_args, summon_component, task_manager_component)
     while True:
         env_gui.step()
+
+
+if __name__ == '__main__':
+    args = get_args()
+    run(args.debug, args.back, args.arms, args.bins)
