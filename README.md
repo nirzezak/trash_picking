@@ -31,12 +31,12 @@ TODO
   * `python main.py --back` - run the waste sorting program but instead of presenting the sorting simulation, present the background environments in the GUI
  
 ## Package Details
-### Featured Components
+### Featured Components and Project Structure
 #### UR5 robot arm and Robotiq 2F-85 gripper
 * Opening and closing of gripper
 * State machine designed for waste sorting
  
-And also features found in Gal Wiernik's acknowledged repository (some with minor adjustments):
+And also features found in [Multiarm Motion planner](https://github.com/galmw/centralized-multiarm-drrt) (some with minor adjustments):
 * Setup of arm and gripper - loading URDF models and setting gripper constraints
 * Collision checking
 * Inverse Kinematics
@@ -52,6 +52,24 @@ All of which can be found in `multiarm_planner/ur5.py`
 * BiRRT algorithm implementation - `multiarm_planner/rrt/rrt_connect.py`
 * Assuming an initialized `MultiarmEnvironment` (`multiarm_planner/multiarm_environment.py`) - usage of multi-arm BiRRT is through the `birrt` method in `MultiarmEnvironment`
 * `mutliarm_planner/ur5_group.py` includes methods for multi-arm operations, such as multi-arm forward kinematics, multi-arm collision checks and more
+
+#### Environment and Main Event Loop
+* The `Environment` class is responsible for loading the simulation environment, that is, all used models including: ur5 arms, trash bins, conveyor and trash generator
+* As both the actual simulation and sandbox simulations are identical in their design, both `RealEnvironment` and `BackgroundEnvironment` classes inherit the parent `Environment` class and expand upon it
+* `RealEnvironment` is the actual simulation and contains the main event loop including:
+  * Running the trash summoner
+  * Running the conveyor
+  * Running the TaskManager state machine
+  * Running each of the UR5 arms' state machine
+  * Advancing the actual pybullet simulation
+  * Keeping track of score
+  * Removing redundant trash models from screen
+* `BackgroundEnvironment` is the sandbox simulation used for various computations that require actions in the simulated world, such as moving a UR5 arm to the IK solution and verifying the solution is good enough, or running the motion planning algorithm to compute paths while checking for collisions. It also contains code for multiple sandbox simulations running in parallel using multiprocessing
+* Background environments can be seen using the `Show background environments` option
+* Simultaneously viewing both the real environment and the background environments is not supported
+* `environment.py`, `real_environment.py` and `background_environment.py` all contain the respective code
+
+#### Task Manager
 
 
 ## Acknowledgments
