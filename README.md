@@ -2,6 +2,9 @@
 TODO - add a video here
 
 * Waste sorting with multiple arms simulation using motion planing algorithms and multiprocessing
+* Our package features a non-interruptive solution to motion planning by handling collision checks and motion planning computations in a sandbox simulation that runs in a different process in the background
+* The result is a fluid, real-time simulation and a stable environment
+  * Other motion planning projects compute motion planning inside the simulated environment, which affects (and ruins) the environment itself
 * Project for the workshop in algorithms for robot motion planning in Tel Aviv University 	
 
 ## Requirements
@@ -49,11 +52,6 @@ All of which can be found in `multiarm_planner/ur5.py`
 * BiRRT algorithm implementation - `multiarm_planner/rrt/rrt_connect.py`
 * Assuming an initialized `MultiarmEnvironment` (`multiarm_planner/multiarm_environment.py`) - usage of multi-arm BiRRT is through the `birrt` method in `MultiarmEnvironment`
 * `mutliarm_planner/ur5_group.py` includes methods for multi-arm operations, such as multi-arm forward kinematics, multi-arm collision checks and more
-
-### Background Simulation and Multiprocessing
-* Our package features a non-interruptive solution to motion planning by handling collision checks and motion planning computations in a sandbox simulation that runs in a different process in the background
-* The result is a fluid, real-time simulation and a stable environment
-  * Other motion planning projects compute motion planning inside the simulated environment, which affects (and ruins) the environment itself
 
 
 ## Acknowledgments
