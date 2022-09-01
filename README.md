@@ -28,7 +28,7 @@ TODO
   * `python main.py --back` - run the waste sorting program but instead of presenting the sorting simulation, present the background environments in the GUI
  
 ## Package Details
-### Components
+### Featured Components
 #### UR5 robot arm and Robotiq 2F-85 gripper
 * Opening and closing of gripper
 * State machine designed for waste sorting
@@ -49,6 +49,12 @@ All of which can be found in `multiarm_planner/ur5.py`
 * BiRRT algorithm implementation - `multiarm_planner/rrt/rrt_connect.py`
 * Assuming an initialized `MultiarmEnvironment` (`multiarm_planner/multiarm_environment.py`) - usage of multi-arm BiRRT is through the `birrt` method in `MultiarmEnvironment`
 * `mutliarm_planner/ur5_group.py` includes methods for multi-arm operations, such as multi-arm forward kinematics, multi-arm collision checks and more
+
+### Background Simulation and Multiprocessing
+* Our package features a non-interruptive solution to motion planning by handling collision checks and motion planning computations in a sandbox simulation that runs in a different process in the background
+* The result is a fluid, real-time simulation and a stable environment
+  * Other motion planning projects compute motion planning inside the simulated environment, which affects (and ruins) the environment itself
+
 
 ## Acknowledgments
 [Multiarm Motion planner, Gal Wiernik](https://github.com/galmw/centralized-multiarm-drrt)
