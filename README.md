@@ -64,7 +64,7 @@ Also contains features found in [Multiarm Motion planner](https://github.com/gal
 `models/` `trash.py` `trash_generator.py` `trash_types.py` `configs/trash_configs.py`
 * Trash models can be found in the `models/` directory
 * Trash objects can be summoned manually using the `TrashGenerator` class
-  * Otherwise, summon components already preiodically summon trash and should be used for simulation
+  * Otherwise, summon components already periodically summon trash and should be used for simulation
 * Trash location can be mirrored to the other side of the conveyor using the `signed_value` function in `configs/trash_configs.py`
 
 ##### Adding New Trash
