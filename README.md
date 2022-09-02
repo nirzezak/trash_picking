@@ -80,9 +80,12 @@ Also contains features found in [Multiarm Motion planner](https://github.com/gal
 
 #### Summon Components
 `summon_component.py` `configs/trash_configs.py`
+* Contains a few summoning components responsible for periodically spawning trash
+* Summon components differ in trash object, position, timing and amount
+* For more information, check the documentation in `summon_component.py`
 
-
-
+#### Tasks and Task Manager
+`task_manager.py` `task.py`
 
 #### Environment and Main Event Loop
 `environment.py` `real_environment.py` `background_environment.py`
