@@ -62,7 +62,9 @@ Also contains features found in [Multiarm Motion planner](https://github.com/gal
 #### Trash
 `models/` `trash.py` `trash_generator.py` `trash_types.py` `configs/trash_configs.py`
 * Trash models can be found in the `models/` directory
-* Trash objects can be summoned using the `TrashGenerator` class
+* Trash objects can be summoned manually using the `TrashGenerator` class
+  * Otherwise, summon components already preiodically summon trash and should be used for simulation
+* Trash location can be mirrored to the other side of the conveyor using the `signed_value` function in `configs/trash_configs.py`
 
 ##### Adding New Trash
 * Add the URDF model to `models/`
@@ -72,6 +74,13 @@ Also contains features found in [Multiarm Motion planner](https://github.com/gal
   * Points that the trash should be picked up from - relative to the trash object
     * For example, a water bottle should be picked up from a point close to the lid if it's standing and picked from above rather than the center
   * Trash type - for deciding which bin the trash should be thrown to
+  * If, for some reason, mirroring the trash to the other side causes unexpected behavior with gripping points, `mirrored_gripping_points` field can be added to ensure correct behavior on mirrored trash location
+* Random summon components should automatically include your new trash in the simulation
+  * Other summon components should manually be given your trash config to do so
+
+#### Summon Components
+`summon_component.py` `configs/trash_configs.py`
+
 
 
 
