@@ -10,6 +10,7 @@ TODO - add a video here
 ## Requirements
 * Use Python 3.9+ (former versions haven't been tested)
 * The required Python libraries are defined in: `requirements.txt`
+* TODO: `requirements.txt` doesn't exist
 
 ## User Instructions
 ### GUI
