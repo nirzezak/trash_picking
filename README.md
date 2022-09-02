@@ -30,7 +30,7 @@ TODO
   * `python main.py --arms "arms_conf.json" --bins "bins_conf.json"` - runs the waste sorting simulation with `arms_conf.json`, `bins_conf.json` configuration files
   * `python main.py --back` - run the waste sorting program but instead of presenting the sorting simulation, present the background environments in the GUI
  
-## Package Details
+## Package Details and Programming Guidelines
 ### Featured Components and Project Structure
 #### UR5 robot arm and Robotiq 2F-85 gripper
 `multiarm_planner/ur5.py` `assets/ur5/` `assets/gripper/`
@@ -80,9 +80,10 @@ Also contains features found in [Multiarm Motion planner](https://github.com/gal
 
 #### Summon Components
 `summon_component.py` `configs/trash_configs.py`
-* Contains a few summoning components responsible for periodically spawning trash
-* Summon components differ in trash object, position, timing and amount
-* For more information, check the documentation in `summon_component.py`
+* Contains a few summoning components responsible for periodically spawning trash - used by `RealEnvironment` to simulate trash "arriving to the waste sorting facility", and creating tasks for said trash - simulating a camera used for object detection
+* Summon components differ in trash objects, position, timing and amount
+* Before adding a new summon component, please make sure to inherit the `SummonComponent` base class, and implement the abstract `step` method
+* For more information on how to use and configure summon components check the documentation in `summon_component.py`
 
 #### Tasks and Task Manager
 `task_manager.py` `task.py`
@@ -99,7 +100,9 @@ Also contains features found in [Multiarm Motion planner](https://github.com/gal
   * Advancing the actual pybullet simulation
   * Keeping track of score
   * Removing redundant trash models from screen
-* `BackgroundEnvironment` is the sandbox simulation used for various computations that require actions in the simulated world, such as moving a UR5 arm to the IK solution and verifying the solution is good enough, or running the motion planning algorithm to compute paths while checking for collisions. It also contains code for multiple sandbox simulations running in parallel using multiprocessing
+* `BackgroundEnvironment` is the sandbox simulation used for various computations that require actions in the simulated world, such as verifying IK solution is good enough by moving the UR5 arm to the IK solution, or running the motion planning algorithm to compute paths while checking for collisions. It also contains code for multiple sandbox simulations running in parallel using multiprocessing
+* `background_environment.py` is also the main module responsible for handling path computations: it is given the starting position and goals to reach (picking points of the trash and delivering points to bin), and implements various solutions to improve the speed and stability of finding appropriate paths
+  * One can implement their own path computations to said goals if one wishes to - for more information see `background_environment.py`
 * Background environments can be seen using the `Show background environments` option
 * Simultaneously viewing both the real environment and the background environments is not supported
 
