@@ -33,18 +33,16 @@ TODO
 ## Package Details
 ### Featured Components and Project Structure
 #### UR5 robot arm and Robotiq 2F-85 gripper
-`multiarm_planner/ur5.py`
+`multiarm_planner/ur5.py` `assets/ur5/` `assets/gripper/`
 * Opening and closing of gripper
 * State machine designed for waste sorting
  
-And also features found in [Multiarm Motion planner](https://github.com/galmw/centralized-multiarm-drrt) (some with minor adjustments):
+Also contains features found in [Multiarm Motion planner](https://github.com/galmw/centralized-multiarm-drrt) (some with minor adjustments):
 * Setup of arm and gripper - loading URDF models and setting gripper constraints
 * Collision checking
 * Inverse Kinematics
 * Forward Kinematics
 * Arm movement
-
-All of which can be found in `multiarm_planner/ur5.py`
 
 #### Motion planning for multiple arms using BiRRT
 `multiarm_planner/`
@@ -53,6 +51,29 @@ All of which can be found in `multiarm_planner/ur5.py`
 * BiRRT algorithm implementation - `multiarm_planner/rrt/rrt_connect.py`
 * Assuming an initialized `MultiarmEnvironment` (`multiarm_planner/multiarm_environment.py`) - usage of multi-arm BiRRT is through the `birrt` method in `MultiarmEnvironment`
 * `mutliarm_planner/ur5_group.py` includes methods for multi-arm operations, such as multi-arm forward kinematics, multi-arm collision checks and more
+
+#### Conveyor
+`conveyor.py`
+* The conveyor is a simple box model, that causes objects on top of it to move forward by removing friction and adding velocity
+* Objects that should not be "conveyed", such as the UR5 arms or trash that is picked by an arm, should be added to the `dont_convey` list
+  * If an object was previously conveyed, its friction should be returned to the original value when it is no longer conveyed - otherwise, the behavior is unknown
+* Conveyor speed is adjustable using the `speed` argument and represents the velocity that is given to the objects
+
+#### Trash
+`models/` `trash.py` `trash_generator.py` `trash_types.py` `configs/trash_configs.py`
+* Trash models can be found in the `models/` directory
+* Trash objects can be summoned using the `TrashGenerator` class
+
+##### Adding New Trash
+* Add the URDF model to `models/`
+* Create a new config for the trash in `configs/trash_configs.py`. The config should include:
+  * Path to the URDF model
+  * Location for spawning the trash - relative to the conveyor position
+  * Points that the trash should be picked up from - relative to the trash object
+    * For example, a water bottle should be picked up from a point close to the lid if it's standing and picked from above rather than the center
+  * Trash type - for deciding which bin the trash should be thrown to
+
+
 
 #### Environment and Main Event Loop
 `environment.py` `real_environment.py` `background_environment.py`
@@ -69,10 +90,6 @@ All of which can be found in `multiarm_planner/ur5.py`
 * `BackgroundEnvironment` is the sandbox simulation used for various computations that require actions in the simulated world, such as moving a UR5 arm to the IK solution and verifying the solution is good enough, or running the motion planning algorithm to compute paths while checking for collisions. It also contains code for multiple sandbox simulations running in parallel using multiprocessing
 * Background environments can be seen using the `Show background environments` option
 * Simultaneously viewing both the real environment and the background environments is not supported
-* `environment.py`, `real_environment.py` and `background_environment.py` all contain the respective code
-
-#### Task Manager
-
 
 ## Acknowledgments
 [Multiarm Motion planner, Gal Wiernik](https://github.com/galmw/centralized-multiarm-drrt)
