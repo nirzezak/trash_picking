@@ -113,5 +113,7 @@ Also contains features found in [Multiarm Motion planner](https://github.com/gal
 * Background environments can be seen using the `Show background environments` option
 * Simultaneously viewing both the real environment and the background environments is not supported
 
+#### Information on anything not specified above can be found in the documentation inside the source code
+
 ## Acknowledgments
 [Multiarm Motion planner, Gal Wiernik](https://github.com/galmw/centralized-multiarm-drrt)
