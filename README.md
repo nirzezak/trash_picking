@@ -78,6 +78,7 @@ Also contains features found in [Multiarm Motion planner](https://github.com/gal
   * If, for some reason, mirroring the trash to the other side causes unexpected behavior with gripping points, `mirrored_gripping_points` field can be added to ensure correct behavior on mirrored trash location
 * Random summon components should automatically include your new trash in the simulation
   * Other summon components should manually be given your trash config to do so
+* It is highly recommended to use [Blender with the Phobos add-on](https://github.com/dfki-ric/phobos) to calculate anything related to the trash model
 
 #### Summon Components
 `summon_component.py` `configs/trash_configs.py`
