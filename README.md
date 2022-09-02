@@ -33,6 +33,7 @@ TODO
 ## Package Details
 ### Featured Components and Project Structure
 #### UR5 robot arm and Robotiq 2F-85 gripper
+`multiarm_planner/ur5.py`
 * Opening and closing of gripper
 * State machine designed for waste sorting
  
@@ -46,14 +47,15 @@ And also features found in [Multiarm Motion planner](https://github.com/galmw/ce
 All of which can be found in `multiarm_planner/ur5.py`
 
 #### Motion planning for multiple arms using BiRRT
+`multiarm_planner/`
 * Taken directly from [Multiarm Motion planner](https://github.com/galmw/centralized-multiarm-drrt)
   * Minor adjustments that separate the algorithm from the simulation
-* All relevant code is in `multiarm_planner/`
 * BiRRT algorithm implementation - `multiarm_planner/rrt/rrt_connect.py`
 * Assuming an initialized `MultiarmEnvironment` (`multiarm_planner/multiarm_environment.py`) - usage of multi-arm BiRRT is through the `birrt` method in `MultiarmEnvironment`
 * `mutliarm_planner/ur5_group.py` includes methods for multi-arm operations, such as multi-arm forward kinematics, multi-arm collision checks and more
 
 #### Environment and Main Event Loop
+`environment.py` `real_environment.py` `background_environment.py`
 * The `Environment` class is responsible for loading the simulation environment, that is, all used models including: ur5 arms, trash bins, conveyor and trash generator
 * As both the actual simulation and sandbox simulations are identical in their design, both `RealEnvironment` and `BackgroundEnvironment` classes inherit the parent `Environment` class and expand upon it
 * `RealEnvironment` is the actual simulation and contains the main event loop including:
