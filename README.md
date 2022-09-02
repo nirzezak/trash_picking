@@ -95,7 +95,7 @@ Also contains features found in [Multiarm Motion planner](https://github.com/gal
 * As both the actual simulation and sandbox simulations are identical in their design, both `RealEnvironment` and `BackgroundEnvironment` classes inherit the parent `Environment` class and expand upon it
 * The layout of the environment consists of:
   * Conveyor
-  * UR5 arms from both side of the conveyor - with the 2 closest arms on each side being a pair
+  * UR5 arms on both sides of the conveyor - with the 2 closest arms on each side being a pair
   * Trash bins behind each arm - with one shared bin between each 2 arms in a pair
 * See `User Instructions` above for instructions on how to change the amount and locations of arms and bins 
 * `RealEnvironment` is the actual simulation and contains the main event loop including:
