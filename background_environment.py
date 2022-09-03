@@ -106,9 +106,6 @@ class BackgroundEnv(Environment):
             trash = self.trash_generator.summon_trash(trash_conf)
             grip_point = trash.get_curr_gripping_points()[0]
 
-            # TODO: Having the trash here hurts the probability of finding a path while having no real merit
-            #   since the entire path will take place without the trash being in this exact location.
-            #   Should remove the summoning altogether and just calculate the gripping points.
             self.trash_generator.remove_trash()
 
             above_grip_point = grip_point.copy()
@@ -295,7 +292,7 @@ class BackgroundEnv(Environment):
         # Save original state of arm
         original_values = self.arms[arm_idx].get_arm_joint_values()
 
-        # Run IK 10 times to reach better solutions - TODO: not sure if this causes considerable slowdown, can lower from 10 iterations
+        # Run IK 10 times to reach better solutions
         for i in range(10):
             self.arms[arm_idx].set_arm_joints(self.arms[arm_idx].inverse_kinematics(location, orientation=orientation))
             effector_position, effector_orientation = self.arms[arm_idx].get_end_effector_pose()

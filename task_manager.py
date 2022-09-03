@@ -83,70 +83,6 @@ class TaskManagerComponent(ABC):
 
         return closest_bins
 
-    # TODO: Remove this function and the next one
-    def _find_closest_bin(self, trash: Trash, arm: UR5) -> List[int]:
-        """
-        Finds the closest bin to the arm, that handles this type of trash.
-
-        @param trash: The trash object we want to recycle.
-        @param arm: The arm that we will use.
-
-        @returns The location of the closest bin,
-        for shared bins, add some offset to avoid collisions when both arms need to work on that trash bin.
-        """
-        # TODO: This function is probably useless, we can hardcode it, but I was
-        #   too lazy to do it now... we can leave it and cache the results
-        arm_loc = arm.pose[0]
-        arm_loc = np.array(arm_loc)
-
-        # Find the closest bin
-        closest_bin_distance = math.inf
-        closest_bin = None
-        for trash_bin in self.bins:
-            if trash_bin.trash_type == trash.trash_type:
-                # Calculate distance
-                trash_bin_loc = np.array(trash_bin.location)
-                distance = np.linalg.norm(arm_loc - trash_bin_loc)
-                if distance < closest_bin_distance:
-                    closest_bin_distance = distance
-                    closest_bin = trash_bin
-
-        return closest_bin.location.copy()
-
-    def find_bin_loc_for_arms(self, trash_lst: List[Trash], arms: List[UR5]) -> List[List[int]]:
-        """
-        @param trash_lst: list of trash objects we want to recycle.
-        @param arms: list of arms that will be used (accordingly)
-        assumes len(trash_lst) = len(arms) < 3
-
-        @returns The locations of the closest bin for each arm-trash,
-        if both arms need to use the same bin, add some offset to avoid collisions.
-        """
-        bin_loc_list = [self._find_closest_bin(trash, arm) for trash, arm in zip(trash_lst, arms)]
-
-        if len(bin_loc_list) == 2 and bin_loc_list[0] == bin_loc_list[1]:
-            # add some offset to avoid collisions
-            for i in range(2):
-                arm_loc = arms[i].pose[0]
-                arm_loc = np.array(arm_loc)
-                bin_loc = bin_loc_list[i]
-                if arm_loc[1] > bin_loc[1]:
-                    # The arm is ahead than the bin, therefore the arm needs to go a
-                    # little bit further ahead in the y axis
-                    for dim in range(3):
-                        bin_loc[dim] += ARMS_SAFETY_OFFSET[dim]
-                elif arm_loc[1] < bin_loc[1]:
-                    # The bin is ahead than the arm, therefore the arm needs to go a
-                    # little bit further back in the y axis
-                    for dim in range(3):
-                        bin_loc[dim] -= ARMS_SAFETY_OFFSET[dim]
-                else:
-                    # Shouldn't get here
-                    # The arm and the bin are at the same Y offset, so no need for
-                    # any safety offset (in this case, only 1 arm uses this bin)
-                    pass
-        return bin_loc_list
-
     def _get_ticks_for_full_task_heuristic(self, path_to_trash_len: int, path_to_bin_len: int) -> int:
         """"
         Get an estimation for number of ticks for a full task (moving to trash, picking, moving to bin, dropping)
@@ -602,10 +538,6 @@ class AdvancedTaskManager(TaskManagerComponent):
                     # case 2: it's a 2-trash task
                     else:
                         pass
-                        # TODO ENHANCE - we currently leave this task but the trash is not there so the arm moves
-                        #   for nothing. we can convert this task to be a null task- it will still be there so the
-                        #   manager won't assign other tasks in this tick period but when executed, the arm won't move
-                        #   (can be set immediately as DONE at that time)
                     return
 
     def calculate_ticks_to_destination_on_conveyor(self, trash: Trash, trash_dest: List[int]) -> int:
@@ -624,7 +556,6 @@ class AdvancedTaskManager(TaskManagerComponent):
         """"
         Get estimation for number of ticks for a full task (moving to trash, picking, moving to bin, dropping)
         """
-        # TODO SHIR- verify this is true (I think maybe it should be Robotiq2F85.TICKS_TO_CHANGE_GRIP +1)
         return self.get_ticks_for_path_to_trash_heuristic(path_to_trash_len) + \
                2 * Robotiq2F85.TICKS_TO_CHANGE_GRIP + \
                self.get_ticks_for_path_to_bin_heuristic(path_to_bin_len)
@@ -797,12 +728,11 @@ class SimpleTaskManager(TaskManagerComponent):
                     continue
 
             picking_tick = ticker.now() + self._calc_ticks_to_destination_on_conveyor(trash_pair[0],
-                                                                                      trash_pair_picking_points[0])
+                                                                                      trash_pair_picking_points[0],
+                                                                                      self.trash_velocity)
 
             # 2. find motion plan for arms
-            # TODO: Shir used the following line instead:
-            #  bin_dst_loc = self.find_bin_loc_for_arms(trash_pair, pair)
-            bin_dst_loc = [self.closest_bins[arm][trash.trash_type] for trash, arm in zip(trash_pair, pair.arms)]
+            bin_dst_loc = self._find_bin_loc_for_arms(trash_pair, pair.arms)
             arm_start_conf = [arm.get_arm_joint_values() for arm in pair.arms]
             trash_conf = [trash.get_trash_config_at_loc(point) for trash, point in
                           zip(trash_pair, trash_pair_picking_points)]
@@ -883,7 +813,7 @@ class SimpleTaskManager(TaskManagerComponent):
         @returns The locations of the closest bin for each arm-trash,
         if both arms need to use the same bin, add some offset to avoid collisions.
         """
-        bin_dst_loc = [self.closest_bins[arm][trash.trash_type] for trash, arm in zip(trash_list, arms)]
+        bin_dst_loc = [self.closest_bins[arm][trash.trash_type].location for trash, arm in zip(trash_list, arms)]
 
         if len(bin_dst_loc) == 2 and bin_dst_loc[0] == bin_dst_loc[1]:
             for i in range(len(bin_dst_loc)):
@@ -1052,7 +982,7 @@ class ParallelTaskManager(SimpleTaskManager):
                 continue
 
             # 3. Send a motion plan calculation request
-            bin_dst_loc = [self.closest_bins[arm][trash.trash_type] for trash, arm in zip(trash_pair, pair.arms)]
+            bin_dst_loc = self._find_bin_loc_for_arms(trash_pair, pair.arms)
             arm_start_conf = [arm.get_arm_joint_values() for arm in pair.arms]
 
             # Generate only once, but only if we actually managed to find suitable arms
@@ -1145,17 +1075,15 @@ class AdvancedParallelTaskManager(ParallelTaskManager):
                 continue
 
             # 3. Check if the task *approximately* would be possible for the pair
-            # TODO: Choose numbers that aren't random as fuck
             start_tick_lower_bound = picking_tick - 1000
-            end_tick_upper_bound = picking_tick + 1500
+            end_tick_upper_bound = picking_tick + 1300
             task_timeslot = Timeslot(start_tick_lower_bound, end_tick_upper_bound)
             if not self._can_arms_timeslot_fit(pair, task_timeslot):
                 logging.debug(f'Could not fit timeslot')
                 continue
 
             # 4. It is, Send a motion plan calculation request
-            # bin_dst_loc = [self.closest_bins[arm][trash.trash_type] for trash, arm in zip(trash_list, pair.arms)]
-            bin_dst_loc = self.find_bin_loc_for_arms(trash_list, used_arms)
+            bin_dst_loc = self._find_bin_loc_for_arms(trash_list, used_arms)
             arm_start_conf = [arm.get_arm_joint_values() for arm in used_arms]
 
             if task_id is None:
@@ -1205,7 +1133,8 @@ class AdvancedParallelTaskManager(ParallelTaskManager):
         """
         Clear timeslots that already finished
         """
-        # TODO: Finish function
         now = ticker.now()
         for pair in self.pairs:
             timeslots = self.timeslots_per_arm[pair.arms[0]]
+            while len(timeslots) != 0 and timeslots[0].end_tick < now:
+                timeslots.pop(0)
