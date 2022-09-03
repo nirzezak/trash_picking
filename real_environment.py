@@ -5,6 +5,7 @@ import pybullet as p
 
 import environment
 import ticker
+from configs.trash_configs import TrashConfig
 from environment import Environment, EnvironmentArgs
 from score import Score
 from summon_component import RandomSummonComponent, DeterministicSummonComponent, FixedAmountSummonComponent, \
@@ -14,23 +15,60 @@ from multiarm_planner.ur5 import ArmState
 
 
 class RealEnv(Environment):
-    def __init__(self, env_args: EnvironmentArgs, debug: bool):
+    def __init__(self, env_args: EnvironmentArgs, debug: bool, summon_component=None, task_manager_component=None):
         """"
         :param env_args: arguments on how to initialize the environment
         :param debug: print debug messages flag
+        :param summon_component: Which summon component to use (default: AdvancedRandomSummonComponent)
+        :param task_manager_component: Which task manager component to use (default: AdvancedParallelTaskManager)
         """
         super().__init__(env_args.connection_mode, 0.075, env_args.arms_path, env_args.trash_bins_path)
 
         # Manage the real environment: clocks, and scoreboard
         back_connection_mode = p.DIRECT if env_args.connection_mode == p.GUI else p.GUI
         back_env_args = EnvironmentArgs(back_connection_mode, env_args.arms_path, env_args.trash_bins_path)
-        self.task_manager = AdvancedParallelTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args, debug)
+        self.task_manager = self._init_task_manager(task_manager_component, back_env_args, debug)
         self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL)
         self.correct = Score('correct', color=[0.133, 0.545, 0.133], location=[0, 0, 2])
         self.wrong = Score('wrong', color=[1, 0, 0], location=[0, 0, 2.2])
         self.lost = Score('lost', color=[0, 0, 1], location=[0, 0, 2.4])
-        self.summon_component = AdvancedRandomSummonComponent(self.trash_generator, self.task_manager, self.summon_tick)
+        self.summon_component = self._init_summon_component(summon_component)
         time.sleep(5)
+
+    def _init_task_manager(self, task_manager_component, back_env_args: EnvironmentArgs, debug: bool):
+        """
+        Initialize the task manager component, based on the user's choice
+        """
+        if task_manager_component is None or task_manager_component == 'AdvancedParallelTaskManager':
+            return AdvancedParallelTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args, debug)
+        elif task_manager_component == 'ParallelTaskManager':
+            return ParallelTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args, debug)
+        elif task_manager_component == 'SimpleTaskManager':
+            return SimpleTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args, debug)
+        else:
+            raise ValueError('Invalid task manager name')
+
+    def _init_summon_component(self, summon_component):
+        """
+        Initialize the summon component, based on the user's choice
+        """
+        if summon_component is None or summon_component == 'AdvancedRandomSummonComponent':
+            return AdvancedRandomSummonComponent(self.trash_generator, self.task_manager, self.summon_tick)
+        elif summon_component == 'RandomSummonComponent':
+            return RandomSummonComponent(self.trash_generator, self.task_manager, self.summon_tick)
+        elif summon_component.startswith('DeterministicSummonComponent'):
+            summon_type = summon_component.split('-')[1]
+            if summon_type == 'mustard':
+                summon_type = TrashConfig.MUSTARD
+            elif summon_type == 'metal_can':
+                summon_type = TrashConfig.METAL_CAN
+            elif summon_type == 'paper_box':
+                summon_type = TrashConfig.PAPER_BOX
+            else:
+                raise ValueError('Invalid trash name')
+            return DeterministicSummonComponent(self.trash_generator, self.task_manager, self.summon_tick, summon_type)
+        else:
+            raise ValueError('Invalid summon component name')
 
     def step(self):
         """
