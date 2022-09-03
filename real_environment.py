@@ -15,9 +15,10 @@ from multiarm_planner.ur5 import ArmState
 
 
 class RealEnv(Environment):
-    def __init__(self, env_args: EnvironmentArgs, summon_component=None, task_manager_component=None):
+    def __init__(self, env_args: EnvironmentArgs, debug: bool, summon_component=None, task_manager_component=None):
         """"
         :param env_args: arguments on how to initialize the environment
+        :param debug: print debug messages flag
         :param summon_component: Which summon component to use (default: AdvancedRandomSummonComponent)
         :param task_manager_component: Which task manager component to use (default: AdvancedParallelTaskManager)
         """
@@ -26,7 +27,7 @@ class RealEnv(Environment):
         # Manage the real environment: clocks, and scoreboard
         back_connection_mode = p.DIRECT if env_args.connection_mode == p.GUI else p.GUI
         back_env_args = EnvironmentArgs(back_connection_mode, env_args.arms_path, env_args.trash_bins_path)
-        self.task_manager = self._init_task_manager(task_manager_component, back_env_args)
+        self.task_manager = self._init_task_manager(task_manager_component, back_env_args, debug)
         self.summon_tick = math.floor(environment.TRASH_SUMMON_INTERVAL)
         self.correct = Score('correct', color=[0.133, 0.545, 0.133], location=[0, 0, 2])
         self.wrong = Score('wrong', color=[1, 0, 0], location=[0, 0, 2.2])
@@ -34,16 +35,16 @@ class RealEnv(Environment):
         self.summon_component = self._init_summon_component(summon_component)
         time.sleep(5)
 
-    def _init_task_manager(self, task_manager_component, back_env_args: EnvironmentArgs):
+    def _init_task_manager(self, task_manager_component, back_env_args: EnvironmentArgs, debug: bool):
         """
         Initialize the task manager component, based on the user's choice
         """
         if task_manager_component is None or task_manager_component == 'AdvancedParallelTaskManager':
-            return AdvancedParallelTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args)
+            return AdvancedParallelTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args, debug)
         elif task_manager_component == 'ParallelTaskManager':
-            return ParallelTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args)
+            return ParallelTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args, debug)
         elif task_manager_component == 'SimpleTaskManager':
-            return SimpleTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args)
+            return SimpleTaskManager(self.arms, self.bins, self.conveyor.speed, back_env_args, debug)
         else:
             raise ValueError('Invalid task manager name')
 
