@@ -9,12 +9,22 @@ TODO - add a video here
 
 ## Requirements
 * Use Python 3.9+ (former versions haven't been tested)
-* The required Python libraries are defined in: `requirements.txt`
-* TODO: `requirements.txt` doesn't exist
+* The required Python libraries are defined in: `environment.yml` (to be used with Anaconda)
 
 ## User Instructions
 ### GUI
-TODO
+The package has a GUI for easier control of the different configuration options.
+It adds onto the configuration options defined by the CLI, and adds even more 
+configuration options:
+* Set the log level to `DEBUG` instead of `INFO`
+* Show the background environments instead of the main simulation
+* Choose the JSON file for the arms positions
+* Choose the JSON file for the bins locations
+* Choose the summon component to be used. Options available are: `AdvancedRandomSummonComponent`, `RandomSummonComponent` 
+  and `DeterministicSummonComponent`, with either mustard, metal can, or paper box. 
+  Note that there are other summon components, but they are mostly used for debugging.
+* Choose the task manager to be used. Options available are: `AdvancedParallelTaskManager`,
+  `ParallelTaskManager`, and `SimpleTaskManager`.
 
 ### CLI
 * View usage instructions by running: `main.py --help`
@@ -89,6 +99,23 @@ Also contains features found in [Multiarm Motion planner](https://github.com/gal
 
 #### Tasks and Task Manager
 `task_manager.py` `task.py`
+* The `Task` object is the basic unit used by the different task managers. It contains
+  info about the task such as the trash objects and arms related to the tasks, the starting tick
+  of the task, etc.
+* The task managers differ by their capabilities (from `SimpleTaskManager` to `AdvancedParallelTaskManager`
+* The various task managers that can be used by the package can be found in `task_manager.py`. The
+  most simple one, `SimpleTaskManager`, is the basis for task managers, and can be inspected in order to understand
+  how to write a task manager
+* However, it stops the simulation in order to do its path computations, which are expensive
+* In order to avoid that, we developed parallel task managers, which use the `multiprocessing` module of python
+  to create parallel background environments (their code can be found in `background_environment.py`). One should only use
+  the parallel task managers, if they are not trying to debug something, since they simulate the real world more accurately
+* Before adding a new task manager, please make sure to inherit the `TaskManagerComponent` base class (or a suitable 
+  class, if it only extends some capabilities of other task managers), and implement 
+  the abstract `add_trash` and `step` methods
+* *Warning*: The `AdvancedTaskManager` is deprecated, and shouldn't be used
+* For more information on how to use and configure task managers check the documentation in `task_manager.py`
+
 
 #### Environment and Main Event Loop
 `environment.py` `real_environment.py` `background_environment.py`
