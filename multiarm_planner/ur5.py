@@ -1,3 +1,5 @@
+import logging
+
 import pybullet as p
 import numpy as np
 import quaternion
@@ -380,10 +382,10 @@ class UR5:
 
         # For ticks statistics
         if self.print_ticks_stat:
-            print(f'Total ticks: {self.current_tick}')
-            print(f'Estimated ticks: {self.curr_task.len_in_ticks}')
+            logging.debug(f'Total ticks: {self.current_tick}')
+            logging.debug(f'Estimated ticks: {self.curr_task.len_in_ticks}')
             for k, v in self.ticks_stat.items():
-                print(f'{k}: {v}')
+                logging.debug(f'{k}: {v}')
 
         # reset current task fields
         self.curr_task = None
