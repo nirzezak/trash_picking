@@ -216,7 +216,7 @@ class BackgroundEnv(Environment):
             vertical_offset_from_bin_lst = [0.75, 1.2]
         else:
             # The arms turn to different places, so they won't collide, we can use normal y offset
-            vertical_offset_from_bin_lst = [0.85 for _ in range(len(curr_arms))]
+            vertical_offset_from_bin_lst = [0.95 for _ in range(len(curr_arms))]
 
         # Find end poses and above poses
         # End pose - the end poses of the arms (where they will release the trash)
