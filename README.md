@@ -1,6 +1,7 @@
 # Waste Sorting - Robot Motion Planing Project
 
 https://user-images.githubusercontent.com/93075510/188469322-8022a784-f03f-4025-a6c1-7b65ab43466f.mp4
+
 (Download the video if it is not showing)
 
 * Waste sorting with multiple arms simulation using motion planing algorithms and multiprocessing
