@@ -7,7 +7,7 @@ https://user-images.githubusercontent.com/93075510/188469322-8022a784-f03f-4025-
 * Waste sorting with multiple arms simulation using motion planing algorithms and multiprocessing
 * Our package features a non-interruptive solution to motion planning by handling collision checks and motion planning computations in a sandbox simulation that runs in a different process in the background
 * The result is a fluid, real-time simulation and a stable environment
-  * Other motion planning projects compute motion planning inside the simulated environment, which affects (and ruins) the environment itself, while being visible to (and visually unappealing) to the user
+  * Other motion planning projects compute motion planning inside the simulated environment, which affects (and ruins) the environment itself, while being visible (and visually unappealing) to the user
 * Project for the workshop in algorithms for robot motion planning in Tel Aviv University 	
 
 ## Requirements
