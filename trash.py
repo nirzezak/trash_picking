@@ -2,6 +2,7 @@ from typing import List
 
 import numpy as np
 import pybullet as p
+import random
 
 from trash_types import TrashTypes
 
@@ -17,7 +18,7 @@ class Trash(object):
     @param id: The object's ID as returned by pybullet
     @param trash_size: How many arms are required to lift the object?
     """
-    def __init__(self, p_simulation, path=None, location=None, gripping_points=None, trash_type=TrashTypes.PLASTIC, **kwargs):
+    def __init__(self, p_simulation, path=None, location=None, gripping_points=None, trash_type=TrashTypes.PLASTIC, orientation=None, **kwargs):
         """
         @param p_simulation: pybullet simulation physics client
         @param path: Path to the URDF file containing the object
@@ -27,9 +28,14 @@ class Trash(object):
         should be a list of length 2.
         @param trash_type: The type of the trash.
         """
+        # Assign random orientation to trash
+        # Note: change the way orientation assignment works as you please - the important code for handling
+        # changed orientation (which is the gripping point calculation using rotation matrix) is already implemented
+        orientation = [0, 0, random.choice([0, np.pi / 4, np.pi / 2, -np.pi / 4, -np.pi / 2, np.pi / 3, -np.pi / 3])] if orientation is None else orientation
+
         self.path = path
         self.gripping_points = np.array(gripping_points)
-        self.id = p_simulation.loadURDF(self.path, location, useFixedBase=False)
+        self.id = p_simulation.loadURDF(self.path, location, p_simulation.getQuaternionFromEuler(orientation), useFixedBase=False)
         self.trash_size = len(self.gripping_points)
         self.p_simulation = p_simulation
         self.trash_type = trash_type
@@ -37,7 +43,8 @@ class Trash(object):
         self.trash_config = {
             'path': self.path,
             'location': location,
-            'gripping_points': self.gripping_points
+            'gripping_points': self.gripping_points,
+            'orientation': orientation
         }
 
     def get_curr_gripping_points(self) -> List[List[int]]:

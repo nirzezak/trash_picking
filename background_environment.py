@@ -112,10 +112,10 @@ class BackgroundEnv(Environment):
             above_grip_point[2] += 0.3
 
             if self.arms[arm_idx].is_right_arm:
-                orientation = p.getQuaternionFromEuler([0, np.pi / 2, -np.pi / 2])
+                orientation = p.getQuaternionFromEuler(np.array([0, np.pi / 2, -np.pi / 2]) + np.array(trash_conf['orientation']))
 
             else:
-                orientation = p.getQuaternionFromEuler([0, np.pi / 2, np.pi / 2])
+                orientation = p.getQuaternionFromEuler(np.array([0, np.pi / 2, np.pi / 2]) + np.array(trash_conf['orientation']))
 
             end_pos = [above_grip_point, orientation]  # This orientation is "from above"
             arms_to_above_position_configs.append(end_pos)
