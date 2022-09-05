@@ -1,5 +1,7 @@
 # Waste Sorting - Robot Motion Planing Project
-https://user-images.githubusercontent.com/93075510/188469056-e36ef937-e3bf-48ba-808e-d0c476f21a74.mp4
+
+https://user-images.githubusercontent.com/93075510/188469322-8022a784-f03f-4025-a6c1-7b65ab43466f.mp4
+
 
 * Waste sorting with multiple arms simulation using motion planing algorithms and multiprocessing
 * Our package features a non-interruptive solution to motion planning by handling collision checks and motion planning computations in a sandbox simulation that runs in a different process in the background
